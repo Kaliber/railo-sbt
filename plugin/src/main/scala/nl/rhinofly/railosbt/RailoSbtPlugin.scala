@@ -11,23 +11,35 @@ import nl.rhinofly.railosbt.fakes.FakeHttpServletRequest
 import javax.servlet.http.HttpServlet
 import nl.rhinofly.railosbt.fakes.FakeHttpServletResponse
 import railo.loader.engine.CFMLEngine
+import java.io.FileInputStream
+import java.util.jar.Manifest
+import java.io.BufferedInputStream
+import scala.io.Source
+import scala.tools.nsc.io.Jar
 
 object RailoSbtPlugin extends AutoPlugin {
 
-  object RailoSbtKeys {
-    val port = settingKey[Int]("Port to start Railo server")
-    val servletName = settingKey[String]("Name of the CMFL servlet")
-    val cfmlFactory = taskKey[CFMLFactory]("The cfml factory")
-    val servletConfiguration = taskKey[File]("location of the web.xml")
-    val railoConfiguration = taskKey[File]("location of the railo config dir containing railo-web.xml.cfm")
-    val railoLibraryDependencies = taskKey[Map[String, File]]("The dependencies, the pair is the name of the mapping with the location of the library")
+  object autoImport {
+    val Railo = config("railo").describedAs("Configuration for Railo utilities")
+
+    object RailoSbtKeys {
+      val port = settingKey[Int]("Port to start Railo server")
+      val servletName = settingKey[String]("Name of the CMFL servlet")
+      val cfmlFactory = taskKey[CFMLFactory]("The cfml factory")
+      val servletConfiguration = taskKey[File]("location of the web.xml")
+      val railoConfiguration = taskKey[File]("location of the railo config dir containing railo-web.xml.cfm")
+      val railoLibraryDependencies = taskKey[Map[String, File]]("The dependencies, the pair is the name of the mapping with the location of the library")
+      val mappingName = taskKey[String]("Name of the mapping, override this if you want another mapping name")
+    }
   }
 
+  val MAPPING_NAME = "mapping-name"
+  val MAPPING_TYPE = "mapping-type"
+
+  import autoImport.Railo
+  import autoImport.RailoSbtKeys._
+
   override lazy val projectConfigurations = super.projectConfigurations :+ Railo
-
-  import RailoSbtKeys._
-
-  val Railo = config("railo").describedAs("Configuration for Railo utilities")
 
   override lazy val projectSettings =
     //inConfig(Railo)(Defaults.buildCore ++ Classpaths.ivyBaseSettings ++ Classpaths.jvmBaseSettings) ++
@@ -80,16 +92,25 @@ object RailoSbtPlugin extends AutoPlugin {
       },
 
       autoScalaLibrary in Railo := false,
-      
+
       railoLibraryDependencies in Railo :=
         update.value.toSeq.collect {
-          case (configuration, _, artifact, file) if configuration == Railo.name =>
-            artifact.name -> file
-        }.toMap
-  )
-      
+          case (configuration, moduleId, artifact, file) if configuration == Railo.name =>
+            val defaultMappingName =
+              new Jar(file).manifest.flatMap(m => Option(m.getMainAttributes.getValue(MAPPING_NAME)))
+
+            val cleanMappingName = defaultMappingName.getOrElse(artifact.name)
+              .replaceAll("[^a-zA-Z_/]", "_")
+
+            cleanMappingName -> file
+        }.toMap,
+
+      mappingName in Railo := (name in ThisProject).value)
+
   def packaging = Seq(
     autoScalaLibrary := false,
+
+    crossPaths := false,
 
     mappings in (Compile, packageBin) ++= {
       (compile in Railo).value
@@ -104,8 +125,11 @@ object RailoSbtPlugin extends AutoPlugin {
       sourceMappings.toSeq ++ classMappings.toSeq
     },
 
-    packageOptions in (Compile, packageBin) +=
-      Package.ManifestAttributes("mapping-type" -> "cfc"))
+    packageOptions in (Compile, packageBin) += {
+      Package.ManifestAttributes(
+        MAPPING_TYPE -> "cfc",
+        MAPPING_NAME -> (mappingName in Railo).value)
+    })
 
   def compileWithRailo(railoServletName: String, sourceDir: File) = { context: WebAppContext =>
     val handler = context.getServletHandler
@@ -234,7 +258,7 @@ object RailoSbtPlugin extends AutoPlugin {
     webXmlFile
   }
 
-  def generateRailoConfiguration(railoConfigDir: File, libraries:Map[String, File]) = {
+  def generateRailoConfiguration(railoConfigDir: File, libraries: Map[String, File]) = {
     val railoConfig = s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="d6c8871b5f20282faaf3a0abd4e037ccb3b738d4568990d8f578f1e876f245a7" version="4.3"><cfabort/>
     |  <setting/>
     |  <data-sources>
@@ -251,7 +275,7 @@ object RailoSbtPlugin extends AutoPlugin {
     |  <search directory="{railo-web}/search/" engine-class="railo.runtime.search.lucene.LuceneSearchEngine"/>
     |  <scheduler directory="{railo-web}/scheduler/"/>
     |  <mappings>
-    |    ${libraries.map {case (mappingName, file) => s"""<mapping archive="$file" readonly="yes" toplevel="no" trusted="true" primary="archive" virtual="/${mappingName.replaceAll("[\\-\\.]", "_")}" />""" }.mkString("\n")}         
+    |    ${libraries.map { case (mappingName, file) => s"""<mapping archive="$file" readonly="yes" toplevel="no" trusted="true" primary="archive" virtual="/$mappingName" />""" }.mkString("\n")}         
     |    <mapping archive="{railo-web}/context/railo-context.ra" physical="{railo-web}/context/" primary="physical" readonly="yes" toplevel="yes" trusted="true" virtual="/railo-context/"/>
     |  </mappings>
     |  <custom-tag>

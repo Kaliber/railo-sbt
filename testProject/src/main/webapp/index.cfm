@@ -1,4 +1,4 @@
-<cfset t = new test_library_2_10.Test() />
+<cfset t = new test.Test() />
 
 <cfdump var="#t.test()#" />
 
