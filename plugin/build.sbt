@@ -2,6 +2,8 @@ name := "railo-sbt"
 
 organization := "nl.rhinofly"
 
+scalaVersion := "2.10.4"
+
 sbtPlugin := true
 
 resolvers += "http://cfmlprojects.org/artifacts/" at "http://cfmlprojects.org/artifacts/"
