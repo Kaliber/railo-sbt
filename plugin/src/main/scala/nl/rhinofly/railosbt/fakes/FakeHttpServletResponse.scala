@@ -6,7 +6,7 @@ import scala.beans.BeanProperty
 class FakeHttpServletResponse extends HttpServletResponse {
 
   @BeanProperty
-  var contentType:String = _
+  var contentType: String = _
 
   def addCookie(x$1: javax.servlet.http.Cookie): Unit = ???
   def addDateHeader(x$1: String, x$2: Long): Unit = ???
@@ -43,6 +43,7 @@ class FakeHttpServletResponse extends HttpServletResponse {
   def setBufferSize(x$1: Int): Unit = ???
   def setCharacterEncoding(x$1: String): Unit = ???
   def setContentLength(x$1: Int): Unit = ???
+  def setContentLengthLong(x$1: Long): Unit = ???
   def setLocale(x$1: java.util.Locale): Unit = ???
 
 }

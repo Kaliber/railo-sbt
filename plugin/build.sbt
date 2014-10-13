@@ -9,10 +9,9 @@ sbtPlugin := true
 resolvers += "http://cfmlprojects.org/artifacts/" at "http://cfmlprojects.org/artifacts/"
  
 libraryDependencies ++= Seq(
-  "org.eclipse.jetty" % "jetty-servlet" % "9.0.3.v20130506",
-  "org.eclipse.jetty" % "jetty-webapp" % "9.0.3.v20130506",
-  "org.getrailo" % "railo" % "4.3.0.001",
-  "org.getrailo" % "railo-rc" % "4.3.0.001",
-  "org.mortbay.jetty" % "jsp-2.1-glassfish" % "2.1.v20100127",
-  "org.fusesource.jansi" % "jansi" % "1.11"
+  // Waiting for an answer to:
+  // http://stackoverflow.com/questions/26328744/starting-a-webappcontext-in-isolation
+  // we should be able to retrieve rail intransitive
+  "org.getrailo" % "railo" % "4.3.0.001",// intransitive(),
+  "nl.rhinofly" %% "jetty-runner" % "0.1-SNAPSHOT"
 )

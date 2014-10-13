@@ -5,6 +5,7 @@ import javax.servlet.http.HttpServletRequest
 class FakeHttpServletRequest extends HttpServletRequest {
   // Members declared in javax.servlet.http.HttpServletRequest
   def authenticate(x$1: javax.servlet.http.HttpServletResponse): Boolean = ???
+  def changeSessionId(): String = ???
   def getAuthType(): String = ???
   def getContextPath(): String = "/"
   def getCookies(): Array[javax.servlet.http.Cookie] = Array.empty
@@ -32,13 +33,15 @@ class FakeHttpServletRequest extends HttpServletRequest {
   def isRequestedSessionIdFromUrl(): Boolean = ???
   def isRequestedSessionIdValid(): Boolean = ???
   def isUserInRole(x$1: String): Boolean = ???
-  def login(x$1: String,x$2: String): Unit = ???
+  def login(x$1: String, x$2: String): Unit = ???
   def logout(): Unit = ???
+  def upgrade[T <: javax.servlet.http.HttpUpgradeHandler](x$1: Class[T]): T = ???
   // Members declared in javax.servlet.ServletRequest
   def getAsyncContext(): javax.servlet.AsyncContext = ???
   def getAttribute(name: String): Object = null
   def getAttributeNames(): java.util.Enumeration[String] = ???
   def getCharacterEncoding(): String = ???
+  def getContentLengthLong(): Long = ???
   def getContentLength(): Int = ???
   def getContentType(): String = null
   def getDispatcherType(): javax.servlet.DispatcherType = ???
@@ -49,7 +52,7 @@ class FakeHttpServletRequest extends HttpServletRequest {
   def getLocale(): java.util.Locale = ???
   def getLocales(): java.util.Enumeration[java.util.Locale] = ???
   def getParameter(x$1: String): String = ???
-  def getParameterMap(): java.util.Map[String,Array[String]] = ???
+  def getParameterMap(): java.util.Map[String, Array[String]] = ???
   def getParameterNames(): java.util.Enumeration[String] = ???
   def getParameterValues(x$1: String): Array[String] = ???
   def getProtocol(): String = ???
@@ -67,8 +70,8 @@ class FakeHttpServletRequest extends HttpServletRequest {
   def isAsyncSupported(): Boolean = ???
   def isSecure(): Boolean = ???
   def removeAttribute(x$1: String): Unit = ???
-  def setAttribute(x$1: String,x$2: Any): Unit = ???
+  def setAttribute(x$1: String, x$2: Any): Unit = ???
   def setCharacterEncoding(x$1: String): Unit = ???
-  def startAsync(x$1: javax.servlet.ServletRequest,x$2: javax.servlet.ServletResponse): javax.servlet.AsyncContext = ???
+  def startAsync(x$1: javax.servlet.ServletRequest, x$2: javax.servlet.ServletResponse): javax.servlet.AsyncContext = ???
   def startAsync(): javax.servlet.AsyncContext = ???
 }
