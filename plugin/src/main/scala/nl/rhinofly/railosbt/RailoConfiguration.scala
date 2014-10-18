@@ -1,23 +1,46 @@
 package nl.rhinofly.railosbt
 
-import railo.loader.classloader.RailoClassLoader
-import railo.loader.TP
+import java.io.InputStream
 
 object RailoConfiguration {
-  
-  def hashPassword(password: String) = {
-    val tpClass = new TP().getClass()
+
+  def hashPassword(classLoader: ClassLoader, password: String) = {
+    val tpClass = classLoader.loadClass("railo.loader.TP")
     val is = tpClass.getResourceAsStream("/core/core.rc")
     try {
-      val classLoader = new RailoClassLoader(is, tpClass.getClassLoader, false);
-      classLoader
+
+      val railoClassLoader = newRailoClassLoader(classLoader, tpClass, is)
+
+      railoClassLoader
         .findClass("railo.runtime.config.ConfigWebFactory")
-        .getDeclaredMethod("hash", classOf[String])
-        .invoke(null, password)
-        .asInstanceOf[String]
+        .hash(password)
+
     } finally is.close()
   }
-  
+
+  private implicit class ObjectEnhancements(obj: Any) {
+    def findClass(className: String) =
+      obj.getClass
+        .getDeclaredMethod("findClass", classOf[String])
+        .invoke(obj, "railo.runtime.config.ConfigWebFactory")
+        .asInstanceOf[Class[_]]
+  }
+
+  private implicit class ClassEnhancements(clazz: Class[_]) {
+    def hash(password: String) =
+      clazz.getDeclaredMethod("hash", classOf[String])
+        .invoke(null, password)
+        .asInstanceOf[String]
+  }
+
+  private def newRailoClassLoader(classLoader: ClassLoader, tpClass: Class[_], is: InputStream) = {
+    val RailoClassLoader = classLoader
+      .loadClass("railo.loader.classloader.RailoClassLoader")
+      .getConstructor(classOf[InputStream], classOf[ClassLoader], classOf[Boolean])
+
+    RailoClassLoader.newInstance(is, tpClass.getClassLoader, Boolean.box(false))
+  }
+
   def webConfiguration(hashedPassword: String, settings: RailoSettings) =
     s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" version="4.3"><cfabort/>
         |  <setting/>
@@ -67,7 +90,7 @@ object RailoConfiguration {
         |</railo-configuration>""".stripMargin
 
   def serverConfiguration(hashedPassword: String) = {
-   s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" version="4.2">
+    s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" version="4.2">
        | <system err="default" out="null"/>
        | <data-sources psq="false"></data-sources>
        | <file-system fld-directory="{railo-config}/library/fld/" function-directory="{railo-config}/library/function/" tag-directory="{railo-config}/library/tag/" temp-directory="{railo-config}/temp/" tld-directory="{railo-config}/library/tld/"></file-system>

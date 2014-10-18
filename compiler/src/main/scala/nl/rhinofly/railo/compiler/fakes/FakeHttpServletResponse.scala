@@ -1,4 +1,4 @@
-package nl.rhinofly.railosbt.fakes
+package nl.rhinofly.railo.compiler.fakes
 
 import javax.servlet.http.HttpServletResponse
 import scala.beans.BeanProperty

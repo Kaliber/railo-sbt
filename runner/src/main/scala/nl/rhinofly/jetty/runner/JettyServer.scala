@@ -1,18 +1,16 @@
 package nl.rhinofly.jetty.runner
 
 import java.io.File
-
 import scala.Console.GREEN
 import scala.Console.RESET
-
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.util.component.LifeCycle
 import org.eclipse.jetty.webapp.WebAppContext
 import org.fusesource.jansi.AnsiConsole
-
 import jline.console.ConsoleReader
+import javax.servlet.Servlet
 
-class JettyServer(port: Int, resourceBase: File, webXmlFile: File) {
+class JettyServer(port: Int, resourceBase: File, webXmlFile: File) extends JettyServerInterface {
 
   lazy val server = {
     val server = new Server(port)
@@ -29,6 +27,9 @@ class JettyServer(port: Int, resourceBase: File, webXmlFile: File) {
     context
   }
 
+  def getServlet(servletName:String):Servlet = 
+    context.getServletHandler.getServlet(servletName).getServlet
+  
   private var failure: Option[Throwable] = None
 
   def start() = {

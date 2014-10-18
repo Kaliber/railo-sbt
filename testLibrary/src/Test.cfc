@@ -1,5 +1,5 @@
 component {
   function test() {
-    return "tests";
+    return "testss";
   }
 }

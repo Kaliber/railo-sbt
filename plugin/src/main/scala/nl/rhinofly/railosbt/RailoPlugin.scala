@@ -3,15 +3,17 @@ package nl.rhinofly.railosbt
 import java.util.UUID
 import scala.Option.option2Iterable
 import scala.tools.nsc.io.Jar
-import org.eclipse.jetty.webapp.WebAppContext
-import javax.servlet.http.HttpServlet
-import nl.rhinofly.jetty.runner.JettyServer
-import nl.rhinofly.railosbt.fakes.FakeHttpServletRequest
-import nl.rhinofly.railosbt.fakes.FakeHttpServletResponse
-import railo.loader.engine.CFMLEngineFactory
 import sbt._
 import sbt.Keys._
 import sbt.plugins.JvmPlugin
+import java.net.URLClassLoader
+import sbt.classpath.ClasspathUtilities
+import scala.reflect.runtime.universe
+import nl.rhinofly.jetty.runner.JettyServerFactoryInterface
+import scala.reflect.api.Mirror
+import nl.rhinofly.railo.compiler.CompilerInterface
+import nl.rhinofly.jetty.runner.JettyServerInterface
+import nl.rhinofly.build.BuildInfo
 
 object RailoPlugin extends AutoPlugin {
 
@@ -39,13 +41,29 @@ object RailoPlugin extends AutoPlugin {
 
   val compileOnly = config("compileOnly").hide
 
+  def railoDependency(version: String) = {
+    val Seq(organization, name) = BuildInfo.railoDependencyBase
+    organization % name % version
+  }
+
+  def runnerDependency = {
+    val Seq(organization, name, version) = BuildInfo.runnerDependency
+    organization %% name % version
+  }
+
+  def compilerDependency = {
+    val Seq(organization, name, version) = BuildInfo.compilerDependency
+    organization %% name % version
+  }
+
   lazy val railoProjectSettings = Seq(
     resolvers += "http://cfmlprojects.org/artifacts/" at "http://cfmlprojects.org/artifacts/",
     version in Railo := "4.3.0.001",
     ivyConfigurations += compileOnly,
     libraryDependencies ++= Seq(
-      "org.getrailo" % "railo" % (version in Railo).value % compileOnly,
-      "nl.rhinofly" %% "jetty-runner" % "0.1-SNAPSHOT" % compileOnly,
+      railoDependency((version in Railo).value) % compileOnly,
+      runnerDependency % compileOnly,
+      compilerDependency % compileOnly,
       "com.typesafe" % "config" % "1.2.1" % compileOnly
     ),
     unmanagedClasspath in Compile ++= update.value.select(configurationFilter(compileOnly.name)),
@@ -96,7 +114,8 @@ object RailoPlugin extends AutoPlugin {
 
     content in webConfiguration := {
       val clearTextPassword = (password in webConfiguration).value
-      val hashedPassword = RailoConfiguration.hashPassword(clearTextPassword)
+      val cl = ClasspathUtilities.toLoader((dependencyClasspath in Compile).value.files)
+      val hashedPassword = RailoConfiguration.hashPassword(cl, clearTextPassword)
       val settings = RailoSettings(libraryMappings.value)
       RailoConfiguration.webConfiguration(hashedPassword, settings)
     },
@@ -128,7 +147,8 @@ object RailoPlugin extends AutoPlugin {
 
     content in serverConfiguration := {
       val clearTextPassword = (password in serverConfiguration).value
-      val hashedPassword = RailoConfiguration.hashPassword(clearTextPassword)
+      val cl = ClasspathUtilities.toLoader((dependencyClasspath in Compile).value.files)
+      val hashedPassword = RailoConfiguration.hashPassword(cl, clearTextPassword)
       RailoConfiguration.serverConfiguration(hashedPassword)
     },
 
@@ -179,10 +199,13 @@ object RailoPlugin extends AutoPlugin {
       val serverPassword = (password in serverConfiguration).value
       val sourceDir = sourceDirectory.value
       val classpath = externalDependencyClasspath.value.files
-      val result =
-        executeWithServer(classpath, port.value, sourceDirectory.value, webXml.value) {
-          compileWithRailo(serverPassword, sourceDir)
-        }
+
+      val classLoader = ClasspathUtilities.toLoader(classpath, getClass.getClassLoader)
+
+      classLoader.loadClass("nl.rhinofly.jetty.runner.JettyServerFactory$")
+      
+      val jettyServer = createJettyServer(classLoader, port.value, sourceDirectory.value, webXml.value)
+      val result = compileWithRailo(classLoader, jettyServer, serverPassword, sourceDir)
       IO.copyDirectory(result, classDirectory.value, overwrite = true)
       inc.Analysis.Empty
     }
@@ -208,64 +231,23 @@ object RailoPlugin extends AutoPlugin {
       )
   )
 
-  def executeWithServer[T](classpath: Seq[File], port: Int, resourceBase: File, webXmlFile: File): (WebAppContext => T) => T =
-    code => {
-      val jettyServer = new JettyServer(port, resourceBase, webXmlFile)
-      jettyServer.start()
-      try code(jettyServer.context)
-      finally jettyServer.stop()
-    }
+  def createJettyServer(classLoader: ClassLoader, port: Int, resourceBase: File, webXmlFile: File) = {
+    val mirror = universe.runtimeMirror(classLoader)
+    // get from configuration
+    val module = mirror.staticModule("nl.rhinofly.jetty.runner.JettyServerFactory")
 
-  def compileWithRailo(password: String, sourceDir: File) = { context: WebAppContext =>
-    val handler = context.getServletHandler
-    val servlet = handler.getServlet(RailoServer.SERVLET_NAME).getServlet
-    val servletConfig = servlet.getServletConfig
+    val obj = mirror.reflectModule(module).instance.asInstanceOf[JettyServerFactoryInterface]
 
-    val engine = CFMLEngineFactory.getInstance(servletConfig)
+    obj.newServer(port, resourceBase, webXmlFile)
+  }
 
-    val factory = engine
-      .getCFMLFactory(handler.getServletContext, servletConfig, new FakeHttpServletRequest)
+  def compileWithRailo(classLoader: ClassLoader, jettyServer: JettyServerInterface, password: String, sourceDir: File) = {
+    val mirror = universe.runtimeMirror(classLoader)
+    // get from configuration
+    val module = mirror.staticModule("nl.rhinofly.railo.compiler.Compiler")
 
-    val pageContext = factory.getRailoPageContext(
-      servlet.asInstanceOf[HttpServlet],
-      new FakeHttpServletRequest,
-      new FakeHttpServletResponse,
-      "error-page-url",
-      false,
-      -1,
-      false)
+    val obj = mirror.reflectModule(module).instance.asInstanceOf[CompilerInterface]
 
-    // The section below is commented out because we might need reloading 
-    // in the future. It was quite a trip to figure out how to do it.
-      
-    // We need a page context to be able to restart. We need to restart
-    // Railo because we are running railo in memory and it uses static 
-    // members to store things
-    // println("Restarting Railo before compilation")
-    // engine.getCFMLEngineFactory().restart(password)
-
-    val config = factory.getConfig
-
-    val rootMapping = config.getMappings.toSeq
-      .find(_.getVirtual == "/")
-      .getOrElse(sys.error("Could not find root mapping"))
-
-    val files = (sourceDir ** "*.cfc").get
-
-    val relativeFiles = files
-      .flatMap(IO.relativize(sourceDir, _: File))
-      .map("/" + _)
-
-    relativeFiles.foreach { path =>
-      println("Compiling " + path)
-      val pageSource = rootMapping.getPageSource(path)
-      pageSource.loadPage(pageContext)
-    }
-
-    val classRootDirectory = rootMapping.getClassRootDirectory.getAbsolutePath
-
-    println("Compiled to " + classRootDirectory)
-
-    new File(classRootDirectory)
+    obj.compile(jettyServer, password, sourceDir, RailoServer.SERVLET_NAME)
   }
 }

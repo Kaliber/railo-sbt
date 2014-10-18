@@ -1,11 +1,5 @@
 package nl.rhinofly.railosbt
 
-import org.eclipse.jetty.webapp.WebAppContext
-import org.fusesource.jansi.AnsiConsole
-import org.eclipse.jetty.server.Server
-import java.io.File
-import railo.loader.engine.CFMLEngineFactory
-
 object RailoServer {
 
   val SERVLET_NAME = "CFMLServlet"

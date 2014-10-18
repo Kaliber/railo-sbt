@@ -4,8 +4,8 @@
 //  root / "src/main/scala"
 //}
 
-resolvers += "http://cfmlprojects.org/artifacts/" at "http://cfmlprojects.org/artifacts/"
+//resolvers += "http://cfmlprojects.org/artifacts/" at "http://cfmlprojects.org/artifacts/"
 
 lazy val pluginRoot = project.in( file(".") ) dependsOn plugin
 
-lazy val plugin = RootProject(file("../../plugin") )
+lazy val plugin = ProjectRef(file("../../"), "railo-sbt")
