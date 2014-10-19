@@ -4,6 +4,8 @@ import java.io.InputStream
 
 object RailoConfiguration {
 
+  import RailoServerSettings._
+  
   def hashPassword(classLoader: ClassLoader, password: String) = {
     val tpClass = classLoader.loadClass("railo.loader.TP")
     val is = tpClass.getResourceAsStream("/core/core.rc")
@@ -11,26 +13,11 @@ object RailoConfiguration {
 
       val railoClassLoader = newRailoClassLoader(classLoader, tpClass, is)
 
-      railoClassLoader
+      ReflectionWrapper(railoClassLoader)
         .findClass("railo.runtime.config.ConfigWebFactory")
         .hash(password)
 
     } finally is.close()
-  }
-
-  private implicit class ObjectEnhancements(obj: Any) {
-    def findClass(className: String) =
-      obj.getClass
-        .getDeclaredMethod("findClass", classOf[String])
-        .invoke(obj, "railo.runtime.config.ConfigWebFactory")
-        .asInstanceOf[Class[_]]
-  }
-
-  private implicit class ClassEnhancements(clazz: Class[_]) {
-    def hash(password: String) =
-      clazz.getDeclaredMethod("hash", classOf[String])
-        .invoke(null, password)
-        .asInstanceOf[String]
   }
 
   private def newRailoClassLoader(classLoader: ClassLoader, tpClass: Class[_], is: InputStream) = {
@@ -41,7 +28,26 @@ object RailoConfiguration {
     RailoClassLoader.newInstance(is, tpClass.getClassLoader, Boolean.box(false))
   }
 
-  def webConfiguration(hashedPassword: String, settings: RailoSettings) =
+  private case class ReflectionWrapper(obj: Any) {
+    def findClass(className: String) = {
+      val result =
+        obj.getClass
+          .getDeclaredMethod("findClass", classOf[String])
+          .invoke(obj, "railo.runtime.config.ConfigWebFactory")
+          .asInstanceOf[Class[Any]]
+
+      ClassEnhancements(result)
+    }
+
+    case class ClassEnhancements(clazz: Class[Any]) {
+      def hash(password: String) =
+        clazz.getDeclaredMethod("hash", classOf[String])
+          .invoke(null, password)
+          .asInstanceOf[String]
+    }
+  }
+
+  def webConfiguration(hashedPassword: String, settings: RailoServerSettings) =
     s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" version="4.3"><cfabort/>
         |  <setting/>
         |  <data-sources>

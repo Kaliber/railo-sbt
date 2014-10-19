@@ -40,16 +40,19 @@ class JettyServer(port: Int, resourceBase: File, webXmlFile: File) extends Jetty
 
   def stopOnKey() = {
     if (failure.isEmpty) waitForKey()
-    stop()
+    server.stop()
+    server.join()
+    failure foreach (throw _)
   }
 
   def join() = {
     if (failure.isEmpty) server.join()
-    stop()
+    failure foreach (throw _)
   }
 
   def stop() = {
     server.stop()
+    server.join()
     failure foreach (throw _)
   }
 

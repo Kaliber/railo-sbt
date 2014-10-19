@@ -69,6 +69,7 @@ lazy val `railo-sbt` = project.in( file("plugin") )
   .settings(buildInfoSettings: _*)
   .settings(
     name := "railo-sbt",
+    organization := "nl.rhinofly",
     scalaVersion := "2.10.4",
     crossScalaVersions := Seq("2.10.4"),
     sbtPlugin := true,
@@ -92,6 +93,7 @@ lazy val `railo-sbt` = project.in( file("plugin") )
 lazy val `railo-compiler` = project.in( file("compiler") )
   .settings(
     name := "railo-compiler",
+    organization := "nl.rhinofly",
     resolvers += {
       val Seq(name, url) = railoResolver.value
       name at url
@@ -118,7 +120,8 @@ lazy val `railo-compiler` = project.in( file("compiler") )
 
 lazy val `compiler-interface` = project.in( file("compiler-interface") )
   .settings(
-    name := "railo-compiler-interface"
+    name := "railo-compiler-interface",
+    organization := "nl.rhinofly"
   )
   .dependsOn(`runner-interface`)
 
@@ -126,6 +129,7 @@ lazy val `compiler-interface` = project.in( file("compiler-interface") )
 lazy val `jetty-runner` = project.in( file("runner") )
   .settings(
     name := "jetty-runner",
+    organization := "nl.rhinofly",
     libraryDependencies ++= Seq(
       jettyDependency,
       "org.fusesource.jansi" % "jansi" % "1.11",
@@ -137,6 +141,7 @@ lazy val `jetty-runner` = project.in( file("runner") )
 lazy val `runner-interface` = project.in( file("runner-interface") )
   .settings(
     name := "jetty-runner-interface",
+    organization := "nl.rhinofly",
     libraryDependencies ++= Seq(
       servletApiDependency,
       jettyDependency % "provided"

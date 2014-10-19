@@ -1,6 +1,6 @@
 package nl.rhinofly.railosbt
 
-object RailoServer {
+object ServletContainer {
 
   val SERVLET_NAME = "CFMLServlet"
 
@@ -21,12 +21,6 @@ object RailoServer {
     |      <param-name>railo-server-dir</param-name>
     |      <param-value>$serverConfigDirectory</param-value>
     |    </init-param>
-    |    <!--
-    |    <init-param>
-    |      <param-name>railo-server-root</param-name>
-    |      <param-value>lib/railo</param-value>
-    |    </init-param>
-    |    -->
     |    <load-on-startup>1</load-on-startup>
     |  </servlet>
     |  <servlet-mapping>
