@@ -12,7 +12,8 @@ name := "testProject"
 
 lazy val root = project.in( file(".") ).enablePlugins(RailoPlugin)
 
-libraryDependencies ++= Seq( 
-  "nl.rhinofly" % "test-library" % "0.1-SNAPSHOT" % "railo",
+libraryDependencies ++= Seq(
+  "com.typesafe" % "config" % "1.2.1",
+  "nl.rhinofly" %% "test-library" % "0.1-SNAPSHOT" % "railo",
   "org.qirx" %% "little-spec" % "0.3"
 )

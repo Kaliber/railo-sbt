@@ -10,7 +10,7 @@ import java.net.URLClassLoader
 import sbt.classpath.ClasspathUtilities
 import scala.reflect.runtime.universe
 import nl.rhinofly.jetty.runner.JettyServerFactoryInterface
-import scala.reflect.api.Mirror
+import scala.reflect.runtime.universe.Mirror
 import nl.rhinofly.railo.compiler.CompilerInterface
 import nl.rhinofly.jetty.runner.JettyServerInterface
 import nl.rhinofly.build.BuildInfo
@@ -18,28 +18,33 @@ import nl.rhinofly.build.BuildInfo
 object RailoPlugin extends AutoPlugin {
 
   import Import.Railo
+  import Import.RailoKeys._
+
+  // ensures correct ordering, otherwise settings might get overridden
+  override val requires = JvmPlugin
 
   val autoImport = Import
-
-  // ensures correct ordering, we override certain settings of the JvmPlugin
-  override val requires = JvmPlugin
 
   override lazy val projectConfigurations =
     super.projectConfigurations :+ Railo
 
   override def projectSettings =
     super.projectSettings ++
+      compileOnlySettings ++
+      inConfig(Compile)(Seq(
+        railoSource := sourceDirectory.value / Railo.name
+      )) ++
       railoProjectSettings ++
-      inConfig(Compile)(railoCompileSettings)
+      inConfig(Railo)(baseRailoSettings) ++
+      inConfig(Compile)(packageSettings) ++
+      publishSettings
 
-  import Import.RailoKeys._
+  val compileOnly = config("compileOnly").hide
 
   val MAPPING_NAME = "mapping-name"
   val MAPPING_TYPE = "mapping-type"
 
   lazy val defaultPassword = UUID.randomUUID.toString
-
-  val compileOnly = config("compileOnly").hide
 
   def railoDependency(version: String) = {
     val Seq(organization, name) = BuildInfo.railoDependencyBase
@@ -56,41 +61,90 @@ object RailoPlugin extends AutoPlugin {
     organization %% name % version
   }
 
+  def servletJspApiDependency = {
+    val Seq(organization, name, version) = BuildInfo.servletJspApiDependency
+    organization % name % version
+  }
+
+  val RailoClassifier = Railo.name
+
+  implicit class ModuleIDEnhancements(moduleID: ModuleID) {
+    def railo() =
+      moduleID.artifacts(Artifact.classified(moduleID.name, RailoClassifier))
+
+    def withRailo() = jarIfEmpty.railo()
+
+    private def jarIfEmpty = if (moduleID.explicitArtifacts.isEmpty) moduleID.jar() else moduleID
+  }
+
   lazy val railoProjectSettings = Seq(
     resolvers += "http://cfmlprojects.org/artifacts/" at "http://cfmlprojects.org/artifacts/",
     version in Railo := "4.3.0.001",
-    ivyConfigurations += compileOnly,
     libraryDependencies ++= Seq(
       railoDependency((version in Railo).value) % compileOnly,
       runnerDependency % compileOnly,
       compilerDependency % compileOnly,
-      "com.typesafe" % "config" % "1.2.1" % compileOnly
+      // railo does not have this listed as dependency while it 
+      // depends on it
+      servletJspApiDependency % compileOnly
     ),
-    unmanagedClasspath in Compile ++= update.value.select(configurationFilter(compileOnly.name)),
-    autoScalaLibrary := false,
-    crossPaths := false
+    moduleSettings := addRailoArtifacts(moduleSettings.value)
   )
 
-  lazy val railoCompileSettings =
+  def addRailoArtifacts(moduleSettings: ModuleSettings): ModuleSettings =
+    moduleSettings match {
+      case ec: InlineConfiguration if ec.configurations contains Railo =>
+        ec.copy(
+          dependencies = ec.dependencies.map(addRailoDependency),
+          overrides = ec.overrides.map(addRailoDependency))
+      case unknown => unknown
+    }
+
+  def addRailoDependency(m: ModuleID): ModuleID =
+    if (m.configurations exists (_ contains Railo.name)) m.withRailo()
+    else m
+
+  lazy val compileOnlySettings = Seq(
+    ivyConfigurations += compileOnly,
+    unmanagedClasspath in Compile ++= update.value.select(configurationFilter(compileOnly.name))
+  )
+
+  lazy val baseRailoSettings =
     directorySettings ++
       serverConfigurationSettings ++
       webConfigurationSettings ++
       webXmlSettings ++
       runSettings ++
-      compileSettings ++
-      packageSettings
+      compileSettings
 
   lazy val directorySettings = Seq(
-    sourceDirectory := baseDirectory.value / "src",
-    resourceDirectory := baseDirectory.value / "conf",
-
-    unmanagedResourceDirectories := Seq(resourceDirectory.value),
-    unmanagedSourceDirectories := Seq(sourceDirectory.value),
-
     target := target.value / Railo.name,
 
-    classDirectory := target.value / "classes"
-  )
+    classDirectory := target.value / "classes",
+
+    fullClasspath := (fullClasspath in Compile).value ++ managedClasspath.value,
+
+    copyResources := (copyResources in Compile).value,
+
+    sourceDirectory := (railoSource in Compile).value,
+
+    managedClasspath := {
+      val filter = configurationFilter(Railo.name) && artifactFilter(classifier = "")
+      update.value.filter(filter).toSeq.map {
+        case (config, module, art, file) =>
+          Attributed(file)(AttributeMap.empty
+            .put(artifact.key, art)
+            .put(moduleID.key, module)
+            .put(configuration.key, Railo)
+          )
+      }.distinct
+    },
+
+    unmanagedSourceDirectories := Seq(sourceDirectory.value),
+    unmanagedSources <<= Defaults.collectFiles(unmanagedSourceDirectories, includeFilter in unmanagedSources, excludeFilter in unmanagedSources),
+    includeFilter in unmanagedSources := "*.cfc"
+
+  ) ++ Defaults.resourceConfigPaths
 
   lazy val webXmlSettings = Seq(
     content in webXml := {
@@ -99,8 +153,10 @@ object RailoPlugin extends AutoPlugin {
       RailoServer.webXml(webConfigurationDirectory, serverConfigurationDirectory)
     },
 
+    target in webXml := target.value / "web.xml",
+
     webXml := {
-      val file = target.value / "web.xml"
+      val file = (target in webXml).value
       val contents = (content in webXml).value
       IO.write(file, contents)
       file
@@ -128,9 +184,11 @@ object RailoPlugin extends AutoPlugin {
       directory
     },
 
-    libraryMappings :=
-      update.value.toSeq.collect {
-        case (configuration, moduleId, artifact, file) if configuration == Railo.name =>
+    libraryMappings := {
+      val filter = configurationFilter(Railo.name) && artifactFilter(classifier = RailoClassifier)
+      update.value.filter(filter).toSeq.map {
+        case (configuration, moduleId, artifact, file) =>
+
           val defaultMappingName =
             new Jar(file).manifest.flatMap(m => Option(m.getMainAttributes.getValue(MAPPING_NAME)))
 
@@ -138,6 +196,7 @@ object RailoPlugin extends AutoPlugin {
 
           Mapping(cleanMappingName, file.getAbsolutePath)
       }
+    }
   )
 
   lazy val serverConfigurationSettings = Seq(
@@ -178,8 +237,9 @@ object RailoPlugin extends AutoPlugin {
           val webXmlFile = webXml.value.getAbsolutePath
 
           val main = (mainClass in run).value.getOrElse("No main class found")
-          val resourcesCopied = copyResources.value
-          val classpath = classDirectory.value +: dependencyClasspath.value.files
+          //val resourcesCopied = copyResources.value
+          //val classpath = classDirectory.value +: dependencyClasspath.value.files
+          val classpath = fullClasspath.value.files
 
           val arguments = Seq(tcpPort, webAppDirectory, webXmlFile, "stopOnKey")
 
@@ -198,56 +258,67 @@ object RailoPlugin extends AutoPlugin {
     compile := {
       val serverPassword = (password in serverConfiguration).value
       val sourceDir = sourceDirectory.value
-      val classpath = externalDependencyClasspath.value.files
+      val classpath = fullClasspath.value.files
 
       val classLoader = ClasspathUtilities.toLoader(classpath, getClass.getClassLoader)
-
-      classLoader.loadClass("nl.rhinofly.jetty.runner.JettyServerFactory$")
-      
-      val jettyServer = createJettyServer(classLoader, port.value, sourceDirectory.value, webXml.value)
-      val result = compileWithRailo(classLoader, jettyServer, serverPassword, sourceDir)
+      val mirror = universe.runtimeMirror(classLoader)
+      val jettyServer = createJettyServer(mirror, port.value, sourceDirectory.value, webXml.value)
+      val result = compileWithRailo(mirror, jettyServer, serverPassword, sourceDir)
       IO.copyDirectory(result, classDirectory.value, overwrite = true)
       inc.Analysis.Empty
-    }
-  )
-
-  lazy val packageSettings = Seq(
-    mappings in packageBin ++= {
-      val classDir = classDirectory.value
-      val classes = classDir.***
-      val classMappings = (classes --- classDir) pair (relativeTo(classDir) | flat)
-
-      val sourceDir = sourceDirectory.value
-      val sources = sourceDir.***
-      val sourceMappings = (sources --- sourceDir) pair (relativeTo(sourceDir) | flat)
-
-      sourceMappings.toSeq ++ classMappings.toSeq
     },
 
-    packageOptions in packageBin +=
-      Package.ManifestAttributes(
-        MAPPING_TYPE -> "cfc",
-        MAPPING_NAME -> (name in Railo).value
-      )
+    products <<= Classpaths.makeProducts
   )
 
-  def createJettyServer(classLoader: ClassLoader, port: Int, resourceBase: File, webXmlFile: File) = {
-    val mirror = universe.runtimeMirror(classLoader)
-    // get from configuration
-    val module = mirror.staticModule("nl.rhinofly.jetty.runner.JettyServerFactory")
+  lazy val packageSettings =
+    Defaults.packageTaskSettings(packageRailo, packageRailoMappings) ++
+      Seq(
+        watchSources in Global <++= unmanagedSources in Railo
+      ) ++
+        inTask(packageRailo)(Seq(
+          artifactClassifier := Some(RailoClassifier),
 
-    val obj = mirror.reflectModule(module).instance.asInstanceOf[JettyServerFactoryInterface]
+          unmanagedSourceDirectories := (unmanagedSourceDirectories in Railo).value,
+          unmanagedSources <<= unmanagedSources in Railo,
 
+          products := (products in Railo).value,
+
+          packageOptions :=
+            Package.addSpecManifestAttributes(name.value, version.value, organizationName.value) +:
+            Package.ManifestAttributes(
+              MAPPING_TYPE -> "cfc",
+              MAPPING_NAME -> (name in Railo).value
+            ) +: packageOptions.value
+        ))
+
+  def packageRailoMappings =
+    Defaults.concatMappings(
+      products.map(_ flatMap Path.allSubpaths),
+      Defaults.sourceMappings
+    )
+
+  lazy val artifactTasks = Seq(packageRailo in Compile)
+
+  lazy val publishSettings = Seq(
+    artifacts <++= Classpaths.artifactDefs(artifactTasks),
+    packagedArtifacts <++= Classpaths.packaged(artifactTasks)
+  )
+
+  def createJettyServer(mirror: Mirror, port: Int, resourceBase: File, webXmlFile: File) = {
+    val obj = mirror.getObject[JettyServerFactoryInterface](BuildInfo.jettyServerFactoryClassName)
     obj.newServer(port, resourceBase, webXmlFile)
   }
 
-  def compileWithRailo(classLoader: ClassLoader, jettyServer: JettyServerInterface, password: String, sourceDir: File) = {
-    val mirror = universe.runtimeMirror(classLoader)
-    // get from configuration
-    val module = mirror.staticModule("nl.rhinofly.railo.compiler.Compiler")
-
-    val obj = mirror.reflectModule(module).instance.asInstanceOf[CompilerInterface]
-
+  def compileWithRailo(mirror: Mirror, jettyServer: JettyServerInterface, password: String, sourceDir: File) = {
+    val obj = mirror.getObject[CompilerInterface](BuildInfo.railoCompilerClassName)
     obj.compile(jettyServer, password, sourceDir, RailoServer.SERVLET_NAME)
+  }
+
+  implicit class MirrorEnhancement(mirror: Mirror) {
+    def getObject[T](name: String): T = {
+      val module = mirror.staticModule(name)
+      mirror.reflectModule(module).instance.asInstanceOf[T]
+    }
   }
 }

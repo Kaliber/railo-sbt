@@ -15,9 +15,10 @@ object Compiler extends CompilerInterface {
 
   // add logger
   def compile(jettyServer: JettyServerInterface, password: String, sourceDir: File, railoServletName: String) = {
-    jettyServer.start()
-    try compileWithServlet(password, sourceDir, railoServletName, jettyServer.getServlet(railoServletName))
-    finally jettyServer.stop()
+    try {
+      jettyServer.start()
+      compileWithServlet(password, sourceDir, railoServletName, jettyServer.getServlet(railoServletName))
+    } finally jettyServer.stop()
   }
 
   def compileWithServlet(password: String, sourceDir: File, railoServletName: String, servlet: Servlet) = {
@@ -57,9 +58,9 @@ object Compiler extends CompilerInterface {
       def accept(dir: File, name: String) = {
         println(dir + " :: " + name)
         name.endsWith(".cfc")
-      } 
+      }
     })
-    
+
     val relativeFiles = files
       .flatMap(relativize(sourceDir, _))
       .map("/" + _)
