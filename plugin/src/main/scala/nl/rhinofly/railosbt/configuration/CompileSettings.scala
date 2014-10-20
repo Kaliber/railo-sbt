@@ -11,8 +11,12 @@ object CompileSettings {
   import AutoImport._
   import RailoKeys._
 
-  lazy val all = directorySettings ++ packageSettings
+  lazy val all = runSettings ++ directorySettings ++ packageSettings
 
+  lazy val runSettings = Seq(
+    mainClass := (mainClass in run in Railo).value
+  )
+  
   lazy val directorySettings = Seq(
     railoSource := sourceDirectory.value / Railo.name
   )

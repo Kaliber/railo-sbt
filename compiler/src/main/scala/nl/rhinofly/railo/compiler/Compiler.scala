@@ -56,7 +56,6 @@ object Compiler extends CompilerInterface {
 
     val files = sourceDir.listFiles(new FilenameFilter {
       def accept(dir: File, name: String) = {
-        println(dir + " :: " + name)
         name.endsWith(".cfc")
       }
     })

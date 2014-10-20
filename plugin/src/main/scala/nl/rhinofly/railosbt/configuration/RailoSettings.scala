@@ -16,6 +16,7 @@ import nl.rhinofly.railo.compiler.CompilerInterface
 import nl.rhinofly.build.BuildInfo
 import nl.rhinofly.jetty.runner.JettyServerInterface
 import scala.tools.nsc.io.Jar
+import nl.rhinofly.railosbt.Constants._
 
 object RailoSettings {
 
@@ -32,6 +33,7 @@ object RailoSettings {
       webXmlSettings ++
       runSettings ++
       compileSettings ++
+      packageRailoSettings ++
       packageSettings
 
   lazy val defaults = Seq(
@@ -47,10 +49,10 @@ object RailoSettings {
   lazy val directorySettings = Seq(
     target := target.value / Railo.name,
     classDirectory := target.value / "classes",
-    fullClasspath := (fullClasspath in Compile).value ++ managedClasspath.value,
     copyResources := (copyResources in Compile).value,
     sourceDirectory := (railoSource in Compile).value,
     managedClasspath := jarsInRailoConfiguration(update.value),
+    fullClasspath := (fullClasspath in Compile).value,
     unmanagedSourceDirectories := Seq(sourceDirectory.value),
     unmanagedSources <<= Defaults.collectFiles(unmanagedSourceDirectories, includeFilter in unmanagedSources, excludeFilter in unmanagedSources),
     includeFilter in unmanagedSources := "*.cfc"
@@ -58,8 +60,11 @@ object RailoSettings {
 
   lazy val webXmlSettings = Seq(
     content in webXml := {
-      val webConfigurationDirectory = webConfiguration.value.getAbsolutePath
-      val serverConfigurationDirectory = serverConfiguration.value.getAbsolutePath
+      serverConfiguration.value
+      webConfiguration.value
+      val webConfigurationDirectory = (target in webConfiguration).value.getAbsolutePath
+      val serverConfigurationDirectory = (target in serverConfiguration).value.getAbsolutePath
+      
       ServletContainer.webXml(webConfigurationDirectory, serverConfigurationDirectory)
     },
 
@@ -86,15 +91,22 @@ object RailoSettings {
       RailoConfiguration.webConfiguration(hashedPassword, settings)
     },
 
+    artifactPath in webConfiguration := 
+      (target in webConfiguration).value / "railo-web.xml.cfm",
+    
     webConfiguration := {
       val contents = (content in webConfiguration).value
-      val directory = (target in webConfiguration).value
-      val file = directory / "railo-web.xml.cfm"
+      val file = (artifactPath in webConfiguration).value
       IO.write(file, contents)
-      directory
     },
 
-    libraryMappings := railoMappingsInConfiguration(update.value)
+    target in libraryMappings := (target in webConfiguration).value / "mappingArchives",
+
+    libraryMappings := railoMappingsInConfiguration(
+      updateReport = update.value,
+      base = (target in webConfiguration).value,
+      target = (target in libraryMappings).value
+    )
   )
 
   lazy val serverConfigurationSettings = Seq(
@@ -108,12 +120,13 @@ object RailoSettings {
       RailoConfiguration.serverConfiguration(hashedPassword)
     },
 
+    artifactPath in serverConfiguration := 
+      (target in serverConfiguration).value / "railo-server" / "context" / "railo-server.xml",
+    
     serverConfiguration := {
       val contents = (content in serverConfiguration).value
-      val directory = (target in serverConfiguration).value
-      val file = directory / "railo-server" / "context" / "railo-server.xml"
+      val file = (artifactPath in serverConfiguration).value 
       IO.write(file, contents)
-      directory
     }
   )
 
@@ -159,7 +172,7 @@ object RailoSettings {
     products <<= Classpaths.makeProducts
   )
 
-  lazy val packageSettings = Seq(
+  lazy val packageRailoSettings = Seq(
     packageOptions :=
       Package.addSpecManifestAttributes(name.value, version.value, organizationName.value) +:
       Package.ManifestAttributes(
@@ -167,6 +180,14 @@ object RailoSettings {
         MAPPING_NAME -> (name in Railo).value
       ) +: packageOptions.value
   )
+
+  lazy val packageSettings = {
+    import Keys.`package`
+    Seq(
+      port in `package` := (port in run).value,
+      mode in `package` := RailoRunMode.Join
+    )
+  }
 
   def jarsInRailoConfiguration(updateReport: UpdateReport) = {
     val filter = configurationFilter(Railo.name) && artifactFilter(classifier = "")
@@ -180,7 +201,7 @@ object RailoSettings {
     }.distinct
   }
 
-  def railoMappingsInConfiguration(updateReport: UpdateReport) = {
+  def railoMappingsInConfiguration(updateReport: UpdateReport, base: File, target: File) = {
     val filter = configurationFilter(Railo.name) && artifactFilter(classifier = Railo.name)
     updateReport.filter(filter).toSeq.map {
       case (configuration, moduleId, artifact, file) =>
@@ -191,7 +212,14 @@ object RailoSettings {
             mappingName <- Option(manifest.getMainAttributes.getValue(MAPPING_NAME))
           } yield mappingName
 
-        RailoServerSettings.Mapping(mappingName.getOrElse(artifact.name), file.getAbsolutePath)
+        val targetFile = target / file.getName
+        IO.copyFile(file, targetFile)
+        val relativeFileName = IO.relativize(base, targetFile).getOrElse(sys.error(s"Programming error, $targetFile is not relative to $target"))
+
+        RailoServerSettings.Mapping(
+          mappingName.getOrElse(artifact.name),
+          "{railo-web}/" + relativeFileName
+        )
     }
   }
 
@@ -222,7 +250,4 @@ object RailoSettings {
       mirror.reflectModule(module).instance.asInstanceOf[T]
     }
   }
-
-  val MAPPING_NAME = "mapping-name"
-  val MAPPING_TYPE = "mapping-type"
 }
