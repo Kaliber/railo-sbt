@@ -82,7 +82,7 @@ class JettyServer(port: Int, resourceBase: File, webXmlFile: File) extends Jetty
     val ANSI_NORMAL = "\u001b[0m"
     val ANSI_WHITEONBLUE = "\u001b[37;44m"
     val print = AnsiConsole.out.println(_: String)
-    print(ANSI_WHITEONBLUE + "Yetty running on port " + port + ANSI_NORMAL)
+    print(ANSI_WHITEONBLUE + "Jetty running on port " + port + ANSI_NORMAL)
     print("Descriptor    : " + webXmlFile)
     print("Resource base : " + resourceBase)
     print("")
