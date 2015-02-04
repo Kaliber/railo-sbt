@@ -54,11 +54,15 @@ object Compiler extends CompilerInterface {
       .find(_.getVirtual == "/")
       .getOrElse(sys.error("Could not find root mapping"))
 
-    val files = sourceDir.listFiles(new FilenameFilter {
-      def accept(dir: File, name: String) = {
-        name.endsWith(".cfc")
-      }
-    })
+    def cfcsIn(dir:File): Seq[File] = 
+      dir.listFiles().view
+        .flatMap { file =>
+          if (file.isDirectory) cfcsIn(file)
+          else Seq(file)
+        }
+        .filter(_.getName endsWith ".cfc")
+      
+    val files = cfcsIn(sourceDir)
 
     val relativeFiles = files
       .flatMap(relativize(sourceDir, _))
