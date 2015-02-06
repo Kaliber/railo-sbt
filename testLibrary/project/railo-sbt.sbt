@@ -1,3 +1,1 @@
-lazy val pluginRoot = project.in( file(".") ) dependsOn plugin
-
-lazy val plugin = ProjectRef(file("../../"), "railo-sbt")
+addSbtPlugin("nl.rhinofly" % "railo-sbt" % "0.1-SNAPSHOT")
