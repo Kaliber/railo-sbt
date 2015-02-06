@@ -60,7 +60,10 @@ object Compiler extends CompilerInterface {
           if (file.isDirectory) cfcsIn(file)
           else Seq(file)
         }
-        .filter(_.getName endsWith ".cfc")
+        .filter { file =>
+          val name = file.getName
+          (name endsWith ".cfc") || (name endsWith ".cfm")
+        }
       
     val files = cfcsIn(sourceDir)
 
