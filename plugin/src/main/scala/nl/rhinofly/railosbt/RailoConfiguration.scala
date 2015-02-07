@@ -5,24 +5,26 @@ import java.io.InputStream
 object RailoConfiguration {
 
   import RailoServerSettings._
-  
-  def hashPassword(classLoader: ClassLoader, password: String) = {
-    val tpClass = classLoader.loadClass("railo.loader.TP")
-    val is = tpClass.getResourceAsStream("/core/core.rc")
+
+  def hashPassword(classLoader: ClassLoader, password: String, salt: String) = {
+    val tpClass = classLoader.loadClass("lucee.loader.TP")
+    val is = tpClass.getResourceAsStream("/core/core.lco")
+    assert(is != null, "Could not find /core/core.rc in jar containing TP class")
     try {
 
       val railoClassLoader = newRailoClassLoader(classLoader, tpClass, is)
 
       ReflectionWrapper(railoClassLoader)
-        .findClass("railo.runtime.config.ConfigWebFactory")
-        .hash(password)
+        .findClass("lucee.runtime.config.Password")
+        .getInstanceFromRawPassword(password, salt)
+        .password
 
     } finally is.close()
   }
 
   private def newRailoClassLoader(classLoader: ClassLoader, tpClass: Class[_], is: InputStream) = {
     val RailoClassLoader = classLoader
-      .loadClass("railo.loader.classloader.RailoClassLoader")
+      .loadClass("lucee.loader.classloader.LuceeClassLoader")
       .getConstructor(classOf[InputStream], classOf[ClassLoader], classOf[Boolean])
 
     RailoClassLoader.newInstance(is, tpClass.getClassLoader, Boolean.box(false))
@@ -33,22 +35,32 @@ object RailoConfiguration {
       val result =
         obj.getClass
           .getDeclaredMethod("findClass", classOf[String])
-          .invoke(obj, "railo.runtime.config.ConfigWebFactory")
+          .invoke(obj, className)
           .asInstanceOf[Class[Any]]
 
-      ClassEnhancements(result)
+      new ClassEnhancements(result)
     }
 
-    case class ClassEnhancements(clazz: Class[Any]) {
-      def hash(password: String) =
-        clazz.getDeclaredMethod("hash", classOf[String])
-          .invoke(null, password)
+    class ClassEnhancements(clazz: Class[Any]) {
+      def getInstanceFromRawPassword(password: String, salt: String) = {
+        val result =
+          clazz.getDeclaredMethod("getInstanceFromRawPassword", classOf[String], classOf[String])
+            .invoke(null, password, salt)
+            
+        new InstanceEnhancement(clazz, result)
+      }
+    }
+
+    class InstanceEnhancement(clazz: Class[Any], o: Any) {
+      def password =
+        clazz.getDeclaredField("password")
+          .get(o)
           .asInstanceOf[String]
     }
   }
 
-  def webConfiguration(hashedPassword: String, settings: RailoServerSettings) =
-    s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" version="4.3"><cfabort/>
+  def webConfiguration(hashedPassword: String, salt: String, settings: RailoServerSettings) =
+    s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" salt="$salt" version="4.3"><cfabort/>
         |  <setting/>
         |  <data-sources>
         |  </data-sources>
@@ -95,8 +107,8 @@ object RailoConfiguration {
         |  </cache>
         |</railo-configuration>""".stripMargin
 
-  def serverConfiguration(hashedPassword: String) = {
-    s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" version="4.2">
+  def serverConfiguration(hashedPassword: String, salt: String) = {
+    s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" salt="$salt" version="4.2">
        | <system err="default" out="null"/>
        | <data-sources psq="false"></data-sources>
        | <file-system fld-directory="{railo-config}/library/fld/" function-directory="{railo-config}/library/function/" tag-directory="{railo-config}/library/tag/" temp-directory="{railo-config}/temp/" tld-directory="{railo-config}/library/tld/"></file-system>

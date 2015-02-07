@@ -17,6 +17,7 @@ import nl.rhinofly.build.BuildInfo
 import nl.rhinofly.jetty.runner.JettyServerInterface
 import scala.tools.nsc.io.Jar
 import nl.rhinofly.railosbt.Constants._
+import java.util.UUID
 
 object RailoSettings {
 
@@ -38,11 +39,12 @@ object RailoSettings {
 
   lazy val defaults = Seq(
     version := "4.3.0.001",
-    hashPassword := { clearTextPassword =>
+    salt := UUID.randomUUID.toString,
+    hashPassword := { (clearTextPassword, salt) =>
       val projectDependencies = (dependencyClasspath in Compile).value
       val classLoaderWithRailo = ClasspathUtilities.toLoader(projectDependencies.files)
 
-      RailoConfiguration.hashPassword(classLoaderWithRailo, clearTextPassword)
+      RailoConfiguration.hashPassword(classLoaderWithRailo, clearTextPassword, salt)
     }
   )
 
@@ -85,14 +87,15 @@ object RailoSettings {
 
     content in webConfiguration := {
       val clearTextPassword = (password in webConfiguration).value
-      val hashedPassword = hashPassword.value(clearTextPassword)
+      val passwordSalt = (salt in webConfiguration).value
+      val hashedPassword = hashPassword.value(clearTextPassword, passwordSalt)
       val settings = RailoServerSettings(libraryMappings.value)
 
-      RailoConfiguration.webConfiguration(hashedPassword, settings)
+      RailoConfiguration.webConfiguration(hashedPassword, passwordSalt, settings)
     },
 
     artifactPath in webConfiguration := 
-      (target in webConfiguration).value / "railo-web.xml.cfm",
+      (target in webConfiguration).value / "lucee-web.xml.cfm",
     
     webConfiguration := {
       val contents = (content in webConfiguration).value
@@ -116,8 +119,9 @@ object RailoSettings {
 
     content in serverConfiguration := {
       val clearTextPassword = (password in serverConfiguration).value
-      val hashedPassword = hashPassword.value(clearTextPassword)
-      RailoConfiguration.serverConfiguration(hashedPassword)
+      val passwordSalt = (salt in serverConfiguration).value
+      val hashedPassword = hashPassword.value(clearTextPassword, passwordSalt)
+      RailoConfiguration.serverConfiguration(hashedPassword, passwordSalt)
     },
 
     artifactPath in serverConfiguration := 

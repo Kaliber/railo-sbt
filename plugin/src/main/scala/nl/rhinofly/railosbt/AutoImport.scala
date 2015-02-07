@@ -16,7 +16,8 @@ object AutoImport {
     val webXml = taskKey[File]("The web xml file used by Jetty")
     val packageRailo = taskKey[File]("Produces a railo artifact, containing compiled cfml files")
     val railoSource = settingKey[File]("Railo source directory")
-    val hashPassword = taskKey[String => String]("Hashes the given password using Railo")
+    val hashPassword = taskKey[(String, String) => String]("Hashes the given password and salt using Railo")
+    val salt = taskKey[String]("Salt used to hash the password. Default is a UUID")
     val mode = taskKey[RailoRunMode]("The mode in which the server should run")
   }
   

@@ -26,7 +26,7 @@ val servletJspApiDependency = settingKey[Seq[String]]("The servlet jsp api depen
 
 railoResolver in Global := Seq("http://cfmlprojects.org/artifacts/", "http://cfmlprojects.org/artifacts/")
 
-railoDependencyBase in Global := Seq("org.getrailo", "railo")
+railoDependencyBase in Global := Seq("org.lucee", "lucee")
 
 runnerDependency in Global := {
   val project = (projectID in `jetty-runner`).value
@@ -113,8 +113,8 @@ lazy val `railo-compiler` = project.in( file("compiler") )
         organization % name % version % "provided"
       }
       Seq(
-        // matches all versions greater or equal to 4.3 and lower than 4.4
-        railoDependency % "[4.3.0.000,4.4.0.000[" % "provided",
+        // matches all versions greater or equal to 4.5 and lower than 4.6
+        railoDependency % "[4.5.0.000,4.6.0.000[" % "provided",
         servletApiDependency % "provided",
         actualServletJspApiDependency,
         elApiDependency

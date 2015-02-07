@@ -1,4 +1,4 @@
-version in Railo := "4.3.0.002"
+version in Railo := "4.5.0.042"
 
 name in Railo := "test"
 

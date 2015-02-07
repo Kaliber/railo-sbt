@@ -1,8 +1,8 @@
 package nl.rhinofly.railo.compiler
 
 import java.io.File
-import railo.loader.engine.CFMLEngineWrapper
-import railo.loader.engine.CFMLEngineFactory
+import lucee.loader.engine.CFMLEngineWrapper
+import lucee.loader.engine.CFMLEngineFactory
 import nl.rhinofly.jetty.runner.JettyServerInterface
 import nl.rhinofly.railo.compiler.fakes.FakeHttpServletRequest
 import nl.rhinofly.railo.compiler.fakes.FakeHttpServletResponse
@@ -29,8 +29,8 @@ object Compiler extends CompilerInterface {
 
     val factory = engine
       .getCFMLFactory(servletConfig.getServletContext, servletConfig, new FakeHttpServletRequest)
-
-    val pageContext = factory.getRailoPageContext(
+      
+    val pageContext = factory.getLuceePageContext(
       servlet.asInstanceOf[HttpServlet],
       new FakeHttpServletRequest,
       new FakeHttpServletResponse,
