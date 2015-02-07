@@ -8,8 +8,12 @@ object Main extends App {
 
   args match {
     case Parameters(port, resourceBase, webXmlFile, mode) =>
-      val server = new JettyServer(port, resourceBase, webXmlFile)
+      val context = FileBasedContext.create(resourceBase, webXmlFile)
+      val server = new JettyServer(port, context)
       server.start()
+      print("Descriptor    : " + webXmlFile)
+      print("Resource base : " + resourceBase)
+      print("")
       mode.join(server)
     case _ =>
       println("Usage: port resourceBase webXmlFile mode")

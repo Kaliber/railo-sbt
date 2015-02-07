@@ -10,21 +10,13 @@ import org.fusesource.jansi.AnsiConsole
 import jline.console.ConsoleReader
 import javax.servlet.Servlet
 
-class JettyServer(port: Int, resourceBase: File, webXmlFile: File) extends JettyServerInterface {
+class JettyServer(port: Int, val context:WebAppContext) extends JettyServerInterface {
 
   lazy val server = {
     val server = new Server(port)
     server.setStopAtShutdown(true)
     server.addLifeCycleListener(LifeCycleListener)
     server
-  }
-
-  lazy val context = {
-    val context = new WebAppContext()
-    context.setContextPath("/")
-    context.setDescriptor(webXmlFile.getAbsolutePath)
-    context.setResourceBase(resourceBase.getAbsolutePath)
-    context
   }
 
   def getServlet(servletName:String):Servlet = 
@@ -81,11 +73,7 @@ class JettyServer(port: Int, resourceBase: File, webXmlFile: File) extends Jetty
     AnsiConsole.systemInstall()
     val ANSI_NORMAL = "\u001b[0m"
     val ANSI_WHITEONBLUE = "\u001b[37;44m"
-    val print = AnsiConsole.out.println(_: String)
-    print(ANSI_WHITEONBLUE + "Jetty running on port " + port + ANSI_NORMAL)
-    print("Descriptor    : " + webXmlFile)
-    print("Resource base : " + resourceBase)
-    print("")
+    AnsiConsole.out.println(ANSI_WHITEONBLUE + "Jetty running on port " + port + ANSI_NORMAL)
   }
 
   private def waitForKey(): Unit = {
