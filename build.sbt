@@ -51,7 +51,7 @@ val elApiDependency = "javax.el" % "javax.el-api" % "2.2.1" % "provided"
 val jettyDependency = "org.eclipse.jetty" % "jetty-webapp" % "9.2.3.v20140905"
 
 
-scalaVersion := "2.11.2"
+scalaVersion := "2.11.5"
 
 crossScalaVersions := Seq("2.10.4", scalaVersion.value)
 
