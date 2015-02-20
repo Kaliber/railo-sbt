@@ -7,6 +7,7 @@ import nl.rhinofly.build.BuildInfo
 import com.typesafe.sbt.SbtNativePackager._
 import com.typesafe.sbt.SbtNativePackager.NativePackagerKeys._
 import nl.rhinofly.railosbt.Constants._
+import nl.rhinofly.railosbt.ServletContainer
 
 object ProjectSettings {
 
@@ -16,11 +17,12 @@ object ProjectSettings {
       compileOnlySettings ++
       dependencySettings ++
       publishSettings ++
-      nativePackagerSettings
+      nativePackagerSettings ++
+      testUtilitySettings
 
   // A configuration that can be used for dependencies that should not be 
   // added to the Maven or Ivy description (when using the library)
-  val compileAndRuntimeOnly = config("compileAndRuntimeOnly").hide
+  val compileAndRuntimeAndTestOnly = config("compileAndRuntimeAndTestOnly").hide
 
   import AutoImport._
   import RailoKeys._
@@ -37,9 +39,10 @@ object ProjectSettings {
   )
 
   lazy val compileOnlySettings = Seq(
-    ivyConfigurations += compileAndRuntimeOnly,
-    unmanagedClasspath in Compile ++= update.value.select(configurationFilter(compileAndRuntimeOnly.name)),
-    unmanagedClasspath in Runtime ++= (unmanagedClasspath in Compile).value
+    ivyConfigurations += compileAndRuntimeAndTestOnly,
+    unmanagedClasspath in Compile ++= update.value.select(configurationFilter(compileAndRuntimeAndTestOnly.name)),
+    unmanagedClasspath in Runtime ++= (unmanagedClasspath in Compile).value,
+    unmanagedClasspath in Test ++= (unmanagedClasspath in Compile).value
   )
 
   lazy val dependencySettings = Seq(
@@ -48,11 +51,11 @@ object ProjectSettings {
       import BuildInfo._
       val railoDependency = railoDependencyBase :+ (version in Railo).value
       Seq(
-        javaDependency(railoDependency) % compileAndRuntimeOnly,
+        javaDependency(railoDependency) % compileAndRuntimeAndTestOnly,
         // railo does not have this listed as dependency while it depends on it
-        javaDependency(servletJspApiDependency) % compileAndRuntimeOnly,
-        scalaDependency(runnerDependency) % compileAndRuntimeOnly,
-        scalaDependency(compilerDependency) % compileAndRuntimeOnly
+        javaDependency(servletJspApiDependency) % compileAndRuntimeAndTestOnly,
+        scalaDependency(runnerDependency) % compileAndRuntimeAndTestOnly,
+        scalaDependency(compilerDependency) % compileAndRuntimeAndTestOnly
       )
     },
     moduleSettings := addRailoArtifacts(moduleSettings.value)
@@ -98,6 +101,30 @@ object ProjectSettings {
       }
     )
 
+  lazy val testUtilitySettings = Seq(
+    sourceGenerators in Test += Def.task {
+      val runnerName = "RailoRunner"
+      val templateStream = getClass.getClassLoader.getResourceAsStream(runnerName + ".template")
+      val template = IO.readStream(templateStream)
+      
+      val sourceDir = (sourceDirectory in Railo).value.getAbsolutePath
+      val webXmlFile = (webXml in Railo).value.getAbsolutePath
+      
+      import BuildInfo.{railoCompilerClassName, jettyServerFactoryClassName}
+      
+      val fullTemplate = template
+        .replace("$sourceDirectory", s"""new File("$sourceDir")""")
+        .replace("$webXmlFile", s"""new File("$webXmlFile")""")
+        .replace("$railoCompilerClassName", railoCompilerClassName)
+        .replace("$jettyServerFactoryClassName", jettyServerFactoryClassName)
+        .replace("$railoServletName", "\"" + ServletContainer.SERVLET_NAME + "\"")
+        
+      val file = (sourceManaged in Test).value / (runnerName + ".scala")
+      IO.write(file, fullTemplate)
+      Seq(file)
+    }.taskValue
+  )
+    
   val relativeToWebAppDir: Option[String] => Option[String] = _.map(WEB_APP_DIR_NAME + "/" + _)
 
   def sourceMappings(sourceDir: File) = {

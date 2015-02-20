@@ -1,0 +1,23 @@
+package nl.rhinofly.railosbt
+
+import java.io.File
+import lucee.runtime.PageContext
+import lucee.runtime.config.ConfigWeb
+import nl.rhinofly.jetty.runner.JettyServerFactoryInterface
+import nl.rhinofly.railo.compiler.CompilerInterface
+import nl.rhinofly.railo.compiler.{RailoRunner => ActualRailoRunner}
+
+object RailoRunner {
+
+  val sourceDirectory:File = $sourceDirectory
+  val webXmlFile:File = $webXmlFile
+  val compiler:CompilerInterface = $railoCompilerClassName
+  val jettyServerFactory:JettyServerFactoryInterface = $jettyServerFactoryClassName
+  val railoServletName:String = $railoServletName
+  
+  def withRailo[T](port: Int)(code: (ConfigWeb, PageContext) => T):T = {
+    val jettyServer = jettyServerFactory.newServer(port, sourceDirectory, webXmlFile)
+    val runner = new ActualRailoRunner(jettyServer, railoServletName)
+    runner.withRailo(code)
+  }
+}

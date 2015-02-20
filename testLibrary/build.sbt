@@ -13,3 +13,5 @@ lazy val root = project.in( file(".") ).enablePlugins(RailoPlugin)
 libraryDependencies ++= Seq(
   "org.qirx" %% "little-spec" % "0.3" % "test"
 )
+
+testFrameworks += new TestFramework("org.qirx.littlespec.sbt.TestFramework")

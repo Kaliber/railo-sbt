@@ -1,3 +1,10 @@
+// Note that some of the structure in here is a bit mind-boggling. The plugin helps in 
+// using Railo from the project that has this plugin defined. Although this plugin interacts
+// with Railo, it does not have a directly dependency on it.
+//
+// The `railo-compiler` and `jetty-runner` are added as libraryDependencies to the project
+// so code in those libraries can be accessed in the given project.
+
 // https://github.com/sbt/sbt/issues/1448
 // https://github.com/sbt/sbt-doge
 // instead of `+command` you can do `fixed+ command`
@@ -93,6 +100,9 @@ lazy val `railo-sbt` = project.in( file("plugin") )
   )
   .dependsOn(`compiler-interface`, `runner-interface`)
 
+// TODO rename compiler-interface and railo-compiler to something more general
+// it will also include getting access to railo stuff
+  
 //  This is the implementation of the `compiler-interface`. It does not make hard
 //  assumptions about the railo version that is used.
 lazy val `railo-compiler` = project.in( file("compiler") )

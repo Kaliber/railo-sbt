@@ -14,6 +14,7 @@ import java.io.FilenameFilter
 import scala.collection.JavaConverters._
 import lucee.runtime.config.ConfigWeb
 import scala.util.Try
+import lucee.runtime.PageContext
 
 object Compiler extends CompilerInterface {
 
@@ -23,51 +24,14 @@ object Compiler extends CompilerInterface {
     password: String,
     sourceDir: File,
     railoServletName: String,
-    logger: Logger) =
-    try {
-      jettyServer.start()
-      compileWithServlet(
-        password,
-        sourceDir,
-        railoServletName,
-        jettyServer.getServlet(railoServletName),
-        logger: Logger
-      )
-    } finally jettyServer.stop()
+    logger: Logger) = {
+    val runner = new RailoRunner(jettyServer, railoServletName)
+    runner withRailo compileWithServlet(password, sourceDir, logger)
+  }
 
   private def compileWithServlet(
-    password: String,
-    sourceDir: File,
-    railoServletName: String,
-    servlet: Servlet,
-    logger: Logger): Try[File] = Try {
-
-    val servletConfig = servlet.getServletConfig
-
-    val engine = CFMLEngineFactory.getInstance(servletConfig)
-
-    val factory = engine
-      .getCFMLFactory(servletConfig.getServletContext, servletConfig, new FakeHttpServletRequest)
-
-    val pageContext = factory.getLuceePageContext(
-      servlet.asInstanceOf[HttpServlet],
-      new FakeHttpServletRequest,
-      new FakeHttpServletResponse,
-      /* errorPageURL = */ "error-page-url",
-      /* needsSession = */ false,
-      /* bufferSize = */ -1,
-      /* autoflush = */ false)
-
-    // The section below is commented out because we might need reloading 
-    // in the future. It was quite a trip to figure out how to do it.
-
-    // We need a page context to be able to restart. We need to restart
-    // Railo because we are running railo in memory and it uses static 
-    // members to store things
-    // println("Restarting Railo before compilation")
-    // engine.getCFMLEngineFactory().restart(password)
-
-    val config = factory.getConfig
+    password: String, sourceDir: File, logger: Logger)(
+      config: ConfigWeb, pageContext: PageContext): Try[File] = Try {
 
     val rootMapping = config.getMappings.toSeq
       .find(_.getVirtual == "/")
