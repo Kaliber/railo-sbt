@@ -6,19 +6,31 @@ object RailoConfiguration {
 
   import RailoServerSettings._
 
-  def hashPassword(classLoader: ClassLoader, password: String, salt: String) = {
-    val tpClass = classLoader.loadClass("lucee.loader.TP")
-    val is = tpClass.getResourceAsStream("/core/core.lco")
-    assert(is != null, "Could not find /core/core.rc in jar containing TP class")
-    try {
+  def salt(classLoader: ClassLoader): String =
+    withRailoClassLoaderFrom(classLoader) { railoClassLoader =>
 
-      val railoClassLoader = newRailoClassLoader(classLoader, tpClass, is)
+      ReflectionWrapper(railoClassLoader)
+        .findClass("lucee.runtime.functions.other.CreateUUID")
+        .salt
+    }
 
+  def hashPassword(classLoader: ClassLoader, password: String, salt: String) =
+    withRailoClassLoaderFrom(classLoader) { railoClassLoader =>
+      
       ReflectionWrapper(railoClassLoader)
         .findClass("lucee.runtime.config.Password")
         .getInstanceFromRawPassword(password, salt)
         .password
+    }
 
+  private def withRailoClassLoaderFrom[T](classLoader: ClassLoader)(code: Any => T): T = {
+    val tpClass = classLoader.loadClass("lucee.loader.TP")
+    val is = tpClass.getResourceAsStream("/core/core.lco")
+    assert(is != null, "Could not find /core/core.rc in jar containing TP class")
+
+    try {
+      val railoClassLoader = newRailoClassLoader(classLoader, tpClass, is)
+      code(railoClassLoader)
     } finally is.close()
   }
 
@@ -46,9 +58,11 @@ object RailoConfiguration {
         val result =
           clazz.getDeclaredMethod("getInstanceFromRawPassword", classOf[String], classOf[String])
             .invoke(null, password, salt)
-            
+
         new InstanceEnhancement(clazz, result)
       }
+
+      def salt: String = clazz.getDeclaredMethod("invoke").invoke(null).asInstanceOf[String]
     }
 
     class InstanceEnhancement(clazz: Class[Any], o: Any) {
@@ -60,52 +74,53 @@ object RailoConfiguration {
   }
 
   def webConfiguration(hashedPassword: String, salt: String, settings: RailoServerSettings) =
-    s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" salt="$salt" version="4.3"><cfabort/>
+    s"""|<?xml version="1.0" encoding="UTF-8"?><cfLuceeConfiguration hspw="$hashedPassword" salt="$salt" version="4.5"><cfabort/>
         |  <setting/>
         |  <data-sources>
         |  </data-sources>
         |  <resources>
-        |    <resource-provider arguments="lock-timeout:10000;" class="railo.commons.io.res.type.s3.S3ResourceProvider" scheme="s3"/>
+        |    <resource-provider arguments="case-sensitive:true;lock-timeout:1000;" class="lucee.commons.io.res.type.ram.RamResourceProvider" scheme="ram"/>
+        |    <resource-provider arguments="lock-timeout:10000;" class="lucee.commons.io.res.type.s3.S3ResourceProvider" scheme="s3"/>
         |  </resources>
-        |  <remote-clients directory="{railo-web}remote-client/"/>
-        |  <file-system deploy-directory="{railo-web}/cfclasses/" fld-directory="{railo-web}/library/fld/" temp-directory="{railo-web}/temp/" tld-directory="{railo-web}/library/tld/">
+        |  <remote-clients directory="{lucee-web}remote-client/"/>
+        |  <file-system deploy-directory="{lucee-web}/cfclasses/" fld-directory="{lucee-web}/library/fld/" temp-directory="{lucee-web}/temp/" tld-directory="{lucee-web}/library/tld/">
         |  </file-system>
-        |  <scope client-directory="{railo-web}/client-scope/" client-directory-max-size="100mb"/>
+        |  <scope client-directory="{lucee-web}/client-scope/" client-directory-max-size="100mb"/>
         |  <mail>
         |  </mail>
-        |  <search directory="{railo-web}/search/" engine-class="railo.runtime.search.lucene.LuceneSearchEngine"/>
-        |  <scheduler directory="{railo-web}/scheduler/"/>
+        |  <search directory="{lucee-web}/search/" engine-class="lucee.runtime.search.lucene.LuceneSearchEngine"/>
+        |  <scheduler directory="{lucee-web}/scheduler/"/>
         |  <mappings>
-        |    ${settings.mappings.map { case Mapping(virtual, archive) => s"""<mapping archive="$archive" readonly="yes" toplevel="no" trusted="true" primary="archive" virtual="/$virtual" />""" }.mkString("\n")}         
-        |    <mapping archive="{railo-web}/context/railo-context.ra" physical="{railo-web}/context/" primary="physical" readonly="yes" toplevel="yes" trusted="true" virtual="/railo-context/"/>
-        |  </mappings>
+        |    ${settings.mappings.map { 
+                case Mapping(virtual, archive) => 
+                  s"""<mapping archive="$archive" toplevel="no" trusted="true" primary="archive" virtual="/$virtual" />"""
+             }.mkString("\n")}
+        |    <mapping archive="{lucee-web}/context/lucee-context.lar" physical="{lucee-web}/context/" primary="physical" readonly="yes" toplevel="yes" trusted="true" virtual="/lucee/"/>
+        |  </mappings> 
         |  <custom-tag>
-        |    <mapping physical="{railo-web}/customtags/" trusted="yes"/>
+        |    <mapping physical="{lucee-web}/customtags/" trusted="yes"/>
         |  </custom-tag>
         |  <ext-tags>
-        |    <ext-tag class="railo.cfx.example.HelloWorld" name="HelloWorld" type="java"/>
+        |    <ext-tag class="lucee.cfx.example.HelloWorld" name="HelloWorld" type="java"/>
         |  </ext-tags>
-        |  <component base="/railo-context/Component.cfc" data-member-default-access="public" use-shadow="yes">
-        |  <mapping archive="{web-root-directory}/../archives/shared-1.1-SNAPSHOT.ra" inspect-template="" primary="archive" virtual="/shared"/><mapping archive="{web-root-directory}/../archives/libraries-1.0-SNAPSHOT.ra" inspect-template="" primary="archive" virtual="/libraries"/></component>
+        |  <component base="/lucee/Component.cfc" data-member-default-access="public" use-shadow="yes"> 
+        |  </component>
         |  <regional/>
-        |  <debugging template="/railo-context/templates/debugging/debugging.cfm"/>
-        |  <application cache-directory="{railo-web}/cache/" cache-directory-max-size="100mb"/>
+        |  <debugging template="/lucee/templates/debugging/debugging.cfm"/>
+        |  <application cache-directory="{lucee-web}/cache/" cache-directory-max-size="100mb"/>
         |  <logging>
-        |    <logger appender="resource" appender-arguments="path:{railo-config}/logs/remoteclient.log" layout="classic" level="info" name="remoteclient"/>
-        |    <logger appender="resource" appender-arguments="path:{railo-config}/logs/requesttimeout.log" layout="classic" name="requesttimeout"/>
-        |    <logger appender="resource" appender-arguments="path:{railo-config}/logs/mail.log" layout="classic" name="mail"/>
-        |    <logger appender="resource" appender-arguments="path:{railo-config}/logs/scheduler.log" layout="classic" name="scheduler"/>
-        |    <logger appender="resource" appender-arguments="path:{railo-config}/logs/trace.log" layout="classic" name="trace"/>
-        |    <logger appender="resource" appender-arguments="path:{railo-config}/logs/application.log" layout="classic" level="info" name="application"/>
-        |    <logger appender="resource" appender-arguments="path:{railo-config}/logs/exception.log" layout="classic" level="info" name="exception"/>
-        |  </logging>
+        |    <logger appender="resource" appender-arguments="path:{lucee-config}/logs/remoteclient.log" layout="classic" level="info" name="remoteclient"/>
+        |    <logger appender="resource" appender-arguments="path:{lucee-config}/logs/requesttimeout.log" layout="classic" name="requesttimeout"/>
+        |    <logger appender="resource" appender-arguments="path:{lucee-config}/logs/mail.log" layout="classic" name="mail"/>
+        |    <logger appender="resource" appender-arguments="path:{lucee-config}/logs/scheduler.log" layout="classic" name="scheduler"/>
+        |    <logger appender="resource" appender-arguments="path:{lucee-config}/logs/trace.log" layout="classic" name="trace"/>
+        |    <logger appender="resource" appender-arguments="path:{lucee-config}/logs/application.log" layout="classic" level="info" name="application"/>
+        |    <logger appender="resource" appender-arguments="path:{lucee-config}/logs/exception.log" layout="classic" level="info" name="exception"/>  
+        |  </logging>    
         |  <rest/>
         |  <gateways/>
         |  <orm/>
-        |  <cache default-object="defObj">
-        |    <connection class="railo.runtime.cache.ram.RamCache" custom="timeToIdleSeconds=0&amp;timeToLiveSeconds=0" name="defObj" read-only="false" storage="false"/>
-        |  </cache>
-        |</railo-configuration>""".stripMargin
+        |</cfLuceeConfiguration>""".stripMargin
 
   def serverConfiguration(hashedPassword: String, salt: String) = {
     s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" salt="$salt" version="4.2">

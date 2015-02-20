@@ -18,6 +18,7 @@ import nl.rhinofly.jetty.runner.JettyServerInterface
 import scala.tools.nsc.io.Jar
 import nl.rhinofly.railosbt.Constants._
 import java.util.UUID
+import nl.rhinofly.railo.compiler.{ Logger => CompilerLogger }
 
 object RailoSettings {
 
@@ -37,14 +38,26 @@ object RailoSettings {
       packageRailoSettings ++
       packageSettings
 
+  def createSalt = {
+    var salt: Option[String] = None
+    Def.task {
+      salt match {
+        case Some(salt) => salt
+        case None =>
+          val projectDependencies = (dependencyClasspath in Compile).value
+          val newSalt = RailoConfiguration.salt(classLoaderWithRailo(projectDependencies))
+          salt = Some(newSalt)
+          newSalt
+      }
+    }
+  }
+
   lazy val defaults = Seq(
     version := "4.3.0.001",
-    salt := UUID.randomUUID.toString,
+    salt := createSalt.value,
     hashPassword := { (clearTextPassword, salt) =>
       val projectDependencies = (dependencyClasspath in Compile).value
-      val classLoaderWithRailo = ClasspathUtilities.toLoader(projectDependencies.files)
-
-      RailoConfiguration.hashPassword(classLoaderWithRailo, clearTextPassword, salt)
+      RailoConfiguration.hashPassword(classLoaderWithRailo(projectDependencies), clearTextPassword, salt)
     }
   )
 
@@ -66,7 +79,7 @@ object RailoSettings {
       webConfiguration.value
       val webConfigurationDirectory = (target in webConfiguration).value.getAbsolutePath
       val serverConfigurationDirectory = (target in serverConfiguration).value.getAbsolutePath
-      
+
       ServletContainer.webXml(webConfigurationDirectory, serverConfigurationDirectory)
     },
 
@@ -94,9 +107,9 @@ object RailoSettings {
       RailoConfiguration.webConfiguration(hashedPassword, passwordSalt, settings)
     },
 
-    artifactPath in webConfiguration := 
+    artifactPath in webConfiguration :=
       (target in webConfiguration).value / "lucee-web.xml.cfm",
-    
+
     webConfiguration := {
       val contents = (content in webConfiguration).value
       val file = (artifactPath in webConfiguration).value
@@ -124,12 +137,12 @@ object RailoSettings {
       RailoConfiguration.serverConfiguration(hashedPassword, passwordSalt)
     },
 
-    artifactPath in serverConfiguration := 
+    artifactPath in serverConfiguration :=
       (target in serverConfiguration).value / "railo-server" / "context" / "railo-server.xml",
-    
+
     serverConfiguration := {
       val contents = (content in serverConfiguration).value
-      val file = (artifactPath in serverConfiguration).value 
+      val file = (artifactPath in serverConfiguration).value
       IO.write(file, contents)
     }
   )
@@ -169,8 +182,9 @@ object RailoSettings {
       val targetDir = classDirectory.value
       val serverPort = (port in compile).value
       val webXmlFile = webXml.value
+      val logger = streams.value.log
 
-      compileTask(classpath, serverPassword, sourceDir, targetDir, serverPort, webXmlFile)
+      compileTask(classpath, serverPassword, sourceDir, targetDir, serverPort, webXmlFile, logger)
     },
 
     products <<= Classpaths.makeProducts
@@ -191,6 +205,11 @@ object RailoSettings {
       port in `package` := (port in run).value,
       mode in `package` := RailoRunMode.Join
     )
+  }
+
+  def classLoaderWithRailo(projectDependencies: Keys.Classpath) = {
+    val classLoaderWithRailo = ClasspathUtilities.toLoader(projectDependencies.files)
+    classLoaderWithRailo
   }
 
   def jarsInRailoConfiguration(updateReport: UpdateReport) = {
@@ -227,14 +246,15 @@ object RailoSettings {
     }
   }
 
-  def compileTask(classpath: Classpath, serverPassword: String, sourceDir: File, targetDir: File, port: Int, webXmlFile: File) = {
+  def compileTask(classpath: Classpath, serverPassword: String, sourceDir: File, targetDir: File, port: Int, webXmlFile: File, logger: Logger) = {
     val classLoader = ClasspathUtilities.toLoader(classpath.files, getClass.getClassLoader)
     val mirror = universe.runtimeMirror(classLoader)
 
     val jettyServer = createJettyServer(mirror, port, sourceDir, webXmlFile)
-    val result = compileWithRailo(mirror, jettyServer, serverPassword, sourceDir)
+    val result = compileWithRailo(mirror, jettyServer, serverPassword, sourceDir, logger)
 
-    IO.copyDirectory(result, targetDir, overwrite = true)
+    val compiledDirectory = result.get // It's ok when this throws an error, sbt will pick it up
+    IO.copyDirectory(compiledDirectory, targetDir, overwrite = true)
     inc.Analysis.Empty
   }
 
@@ -243,9 +263,13 @@ object RailoSettings {
     obj.newServer(port, resourceBase, webXmlFile)
   }
 
-  def compileWithRailo(mirror: universe.Mirror, jettyServer: JettyServerInterface, password: String, sourceDir: File) = {
+  def compileWithRailo(mirror: universe.Mirror, jettyServer: JettyServerInterface, password: String, sourceDir: File, logger: Logger) = {
     val obj = mirror.getObject[CompilerInterface](BuildInfo.railoCompilerClassName)
-    obj.compile(jettyServer, password, sourceDir, ServletContainer.SERVLET_NAME)
+    val compilerLogger = new CompilerLogger {
+      def info(message: String) = logger.info(message)
+      def debug(message: String) = logger.debug(message)
+    }
+    obj.compile(jettyServer, password, sourceDir, ServletContainer.SERVLET_NAME, compilerLogger)
   }
 
   implicit class MirrorEnhancement(mirror: universe.Mirror) {

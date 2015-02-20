@@ -13,18 +13,34 @@ import nl.rhinofly.jetty.runner.JettyServerInterface
 import java.io.FilenameFilter
 import scala.collection.JavaConverters._
 import lucee.runtime.config.ConfigWeb
+import scala.util.Try
 
 object Compiler extends CompilerInterface {
 
   // add logger
-  def compile(jettyServer: JettyServerInterface, password: String, sourceDir: File, railoServletName: String) = {
+  def compile(
+    jettyServer: JettyServerInterface,
+    password: String,
+    sourceDir: File,
+    railoServletName: String,
+    logger: Logger) =
     try {
       jettyServer.start()
-      compileWithServlet(password, sourceDir, railoServletName, jettyServer.getServlet(railoServletName))
+      compileWithServlet(
+        password,
+        sourceDir,
+        railoServletName,
+        jettyServer.getServlet(railoServletName),
+        logger: Logger
+      )
     } finally jettyServer.stop()
-  }
 
-  def compileWithServlet(password: String, sourceDir: File, railoServletName: String, servlet: Servlet) = {
+  private def compileWithServlet(
+    password: String,
+    sourceDir: File,
+    railoServletName: String,
+    servlet: Servlet,
+    logger: Logger): Try[File] = Try {
 
     val servletConfig = servlet.getServletConfig
 
@@ -37,10 +53,10 @@ object Compiler extends CompilerInterface {
       servlet.asInstanceOf[HttpServlet],
       new FakeHttpServletRequest,
       new FakeHttpServletResponse,
-      "error-page-url",
-      false,
-      -1,
-      false)
+      /* errorPageURL = */ "error-page-url",
+      /* needsSession = */ false,
+      /* bufferSize = */ -1,
+      /* autoflush = */ false)
 
     // The section below is commented out because we might need reloading 
     // in the future. It was quite a trip to figure out how to do it.
@@ -75,9 +91,11 @@ object Compiler extends CompilerInterface {
       .flatMap(relativize(sourceDir, _))
       .map("/" + _)
 
+    logger.info("Compiling " + files.size + " files.")
+
     val exceptions =
       relativeFiles.flatMap { path =>
-        println("Compiling " + path)
+        logger.debug("Compiling " + path)
         try {
           val pageSource = rootMapping.getPageSource(path)
           pageSource.loadPage(pageContext)
@@ -89,7 +107,7 @@ object Compiler extends CompilerInterface {
 
     val classRootDirectory = rootMapping.getClassRootDirectory.getAbsolutePath
 
-    println("Compiled to " + classRootDirectory)
+    logger.info("Compiled to " + classRootDirectory)
 
     exceptions
       .foldLeft(None: Option[String]) { (messages, e) =>
