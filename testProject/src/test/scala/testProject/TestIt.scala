@@ -11,9 +11,14 @@ object TestIt extends Specification {
 
     RailoRunner.withRailo(9191) { implicit context =>
       val projectComponent = Cfc("project.Test")
-      val testComponent = Cfc("test.Test")
-      val result = projectComponent.test(testComponent)
-      result is "from-test-component"
+      val testComponent1 = Cfc("test.Test1")
+      val testComponent2 = new Cfc("test.Test2")
+      
+      val result1 = projectComponent.test(testComponent1)
+      val result2 = projectComponent.test(testComponent2)
+      
+      result1 is "from-test1-component"
+      result2 is "from-test2-component"
     }
   }
 }

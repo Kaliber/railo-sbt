@@ -18,10 +18,8 @@ class CfcDefinition(val underlying: RailoContext => Component) extends Dynamic {
     underlying(c).call(c.pageContext, method, normalizedArguments)
   }
     
-  def applyDynamicNamed(method:String)(arguments: (String, NoWrapperType) *)(implicit c: RailoContext): AnyRef = {
-    val normalizedArguments = arguments.toMap.mapValues(_.value).toSeq
-    underlying(c).callWithNamedValues(c.pageContext, method, Struct(normalizedArguments: _*))
-  } 
+  def applyDynamicNamed(method:String)(arguments: (String, NoWrapperType) *)(implicit c: RailoContext): AnyRef =
+    underlying(c).callWithNamedValues(c.pageContext, method, Struct(arguments: _*))
 }
 
 class Cfc(name: String, arguments: AnyRef*)

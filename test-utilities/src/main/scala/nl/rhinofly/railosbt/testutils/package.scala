@@ -9,9 +9,9 @@ package object testutils {
     def as[T] = o.asInstanceOf[T]
   }
   
-  implicit def arrayToRailoArray[T](a:Array[T])(implicit context:RailoContext):RailoArray = {
+  implicit def arrayToRailoArray(a:Array[NoWrapperType])(implicit context:RailoContext):RailoArray = {
     val ra = context.creation.createArray()
-    a.foreach(ra.append)
+    a.map(_.value).foreach(ra.append)
     ra
   }
 }

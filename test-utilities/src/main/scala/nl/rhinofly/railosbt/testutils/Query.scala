@@ -6,7 +6,7 @@ import nl.rhinofly.railo.compiler.RailoContext
 
 object Query {
 
-  def apply(entries: (String, Seq[AnyRef])*)(implicit c: RailoContext): RailoQuery = {
+  def apply(entries: (String, Seq[NoWrapperType])*)(implicit c: RailoContext): RailoQuery = {
     import c.creation.{ createQuery, createKey }
 
     val q = createQuery(Array.empty[Collection.Key], 0, "custom-query")
