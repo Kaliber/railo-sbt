@@ -1,12 +1,16 @@
 package nl.rhinofly.railosbt
 
 import java.io.File
-import lucee.runtime.PageContext
-import lucee.runtime.config.ConfigWeb
+
+import lucee.runtime.exp.PageException
+
 import nl.rhinofly.jetty.runner.JettyServerFactoryInterface
 import nl.rhinofly.railo.compiler.CompilerInterface
+import nl.rhinofly.railo.compiler.Compiler
+import nl.rhinofly.railo.compiler.RailoContext
 import nl.rhinofly.railo.compiler.{RailoRunner => ActualRailoRunner}
 
+// We need to write a test for this. It's not type checked
 object RailoRunner {
 
   val sourceDirectory:File = $sourceDirectory
@@ -15,9 +19,16 @@ object RailoRunner {
   val jettyServerFactory:JettyServerFactoryInterface = $jettyServerFactoryClassName
   val railoServletName:String = $railoServletName
   
-  def withRailo[T](port: Int)(code: (ConfigWeb, PageContext) => T):T = {
+  def withRailo[T](port: Int)(code: RailoContext => T):T = {
     val jettyServer = jettyServerFactory.newServer(port, sourceDirectory, webXmlFile)
     val runner = new ActualRailoRunner(jettyServer, railoServletName)
-    runner.withRailo(code)
+    
+    runner.withRailo { case context @ RailoContext(config, _, _) =>
+      try code(context)
+      catch {
+        case pageException: PageException =>
+          sys.error(Compiler.getFriendlyError(pageException, config))
+      }
+    } 
   }
 }

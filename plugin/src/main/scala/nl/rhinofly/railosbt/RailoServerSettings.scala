@@ -7,5 +7,7 @@ import RailoServerSettings._
 case class RailoServerSettings(mappings: Seq[Mapping])
 
 object RailoServerSettings {
-  case class Mapping(virtual: String, archive: String)
+  sealed trait Mapping
+  case class ArchiveMapping(virtual: String, archive: String) extends Mapping
+  case class LocalDirectoryMapping(virtual: String, directory: String) extends Mapping
 }

@@ -1,5 +1,13 @@
 component {
+  
+  variables.message = "tests-"
+  
+  function init() {
+    variables.message = "tests-" & "init-"
+    return this;
+  }
+
   function test() {
-    return "tests-" & createObject("java", "test.FromScala").test();
+    return variables.message & createObject("java", "test.FromScala").test();
   }
 }

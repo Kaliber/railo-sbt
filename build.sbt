@@ -25,11 +25,15 @@ val runnerDependency = taskKey[Seq[String]]("The runner dependency organization,
 
 val compilerDependency = taskKey[Seq[String]]("The compiler dependency organization, artifact and version")
 
+val testUtilitiesDependency = taskKey[Seq[String]]("The test utilities dependency organization, artifact and version")
+
 val jettyServerFactoryClassName = settingKey[String]("Name of the Jetty Server Factory implementation")
 
 val railoCompilerClassName = settingKey[String]("Name of the Railo Compiler implementation")
 
 val servletJspApiDependency = settingKey[Seq[String]]("The servlet jsp api dependency organization, artifact and version")
+
+val railoDependencies = settingKey[Seq[ModuleID]]("All railo related dependencies")
 
 railoResolver in Global := Seq("http://cfmlprojects.org/artifacts/", "http://cfmlprojects.org/artifacts/")
 
@@ -45,11 +49,34 @@ compilerDependency in Global := {
   Seq(project.organization, project.name, project.revision)
 }
 
+testUtilitiesDependency in Global := {
+  val project = (projectID in `test-utilities`).value
+  Seq(project.organization, project.name, project.revision)
+}
+
 jettyServerFactoryClassName in Global := "nl.rhinofly.jetty.runner.JettyServerFactory"
 
 railoCompilerClassName in Global := "nl.rhinofly.railo.compiler.Compiler"
 
 servletJspApiDependency in Global := Seq("javax.servlet.jsp", "javax.servlet.jsp-api", "2.2.1")
+
+railoDependencies in Global  := {
+  val railoDependency = {
+    val Seq(organization, name) = railoDependencyBase.value
+    organization % name
+  }
+  val actualServletJspApiDependency = {
+    val Seq(organization, name, version) = servletJspApiDependency.value
+    organization % name % version % "provided"
+  }
+  Seq(
+    // matches all versions greater or equal to 4.5 and lower than 4.6
+    railoDependency % "[4.5.0.000,4.6.0.000[" % "provided",
+    servletApiDependency % "provided",
+    actualServletJspApiDependency,
+    elApiDependency
+  )
+}
 
 val servletApiDependency = "javax.servlet" % "javax.servlet-api" % "3.1.0"
 
@@ -57,14 +84,16 @@ val elApiDependency = "javax.el" % "javax.el-api" % "2.2.1" % "provided"
 
 val jettyDependency = "org.eclipse.jetty" % "jetty-webapp" % "9.2.3.v20140905"
 
-
-scalaVersion := "2.11.5"
-
-crossScalaVersions := Seq("2.10.4", scalaVersion.value)
-
 // The root project does not contain code, it just exists to aggregate the other projects
 lazy val root = project.in( file(".") )
-  .aggregate(`railo-sbt`, `jetty-runner`, `railo-compiler`, `runner-interface`, `compiler-interface`)
+  .aggregate(
+    `railo-sbt`, 
+    `jetty-runner`, 
+    `railo-compiler`, 
+    `runner-interface`, 
+    `compiler-interface`,
+    `test-utilities`
+  )
   
 //  This is the actual plugin. Note that it has no direct dependency on railo or jetty. It 
 //  loads the actual implementation of `compiler-interface` from the project classpath. The
@@ -87,6 +116,7 @@ lazy val `railo-sbt` = project.in( file("plugin") )
       railoDependencyBase,
       runnerDependency,
       compilerDependency,
+      testUtilitiesDependency,
       jettyServerFactoryClassName,
       railoCompilerClassName,
       servletJspApiDependency
@@ -102,49 +132,39 @@ lazy val `railo-sbt` = project.in( file("plugin") )
 
 // TODO rename compiler-interface and railo-compiler to something more general
 // it will also include getting access to railo stuff
+
+val defaultSettings = Seq(
+  scalaVersion := "2.11.5",
+  crossScalaVersions := Seq("2.10.4", scalaVersion.value),
+  organization := "nl.rhinofly"
+)
   
 //  This is the implementation of the `compiler-interface`. It does not make hard
 //  assumptions about the railo version that is used.
 lazy val `railo-compiler` = project.in( file("compiler") )
+  .settings(defaultSettings: _*)
   .settings(
     name := "railo-compiler",
-    organization := "nl.rhinofly",
     resolvers += {
       val Seq(name, url) = railoResolver.value
       name at url
     },
-    libraryDependencies ++= {
-      val railoDependency = {
-        val Seq(organization, name) = railoDependencyBase.value
-        organization % name
-      }
-      val actualServletJspApiDependency = {
-        val Seq(organization, name, version) = servletJspApiDependency.value
-        organization % name % version % "provided"
-      }
-      Seq(
-        // matches all versions greater or equal to 4.5 and lower than 4.6
-        railoDependency % "[4.5.0.000,4.6.0.000[" % "provided",
-        servletApiDependency % "provided",
-        actualServletJspApiDependency,
-        elApiDependency
-      )
-    }
+    libraryDependencies ++= railoDependencies.value
   )
   .dependsOn(`compiler-interface`)
 
 lazy val `compiler-interface` = project.in( file("compiler-interface") )
+  .settings(defaultSettings: _*)
   .settings(
-    name := "railo-compiler-interface",
-    organization := "nl.rhinofly"
+    name := "railo-compiler-interface"
   )
   .dependsOn(`runner-interface`)
 
 //  This is the implementation of the `runner-interface`.
 lazy val `jetty-runner` = project.in( file("runner") )
+  .settings(defaultSettings: _*)
   .settings(
     name := "jetty-runner",
-    organization := "nl.rhinofly",
     libraryDependencies ++= Seq(
       jettyDependency,
       "org.fusesource.jansi" % "jansi" % "1.11",
@@ -154,11 +174,23 @@ lazy val `jetty-runner` = project.in( file("runner") )
   .dependsOn(`runner-interface`)
   
 lazy val `runner-interface` = project.in( file("runner-interface") )
+  .settings(defaultSettings: _*)
   .settings(
     name := "jetty-runner-interface",
-    organization := "nl.rhinofly",
     libraryDependencies ++= Seq(
       servletApiDependency,
       jettyDependency % "provided"
     )
   )
+  
+lazy val `test-utilities` = project.in( file("test-utilities") )
+  .settings(defaultSettings: _*)
+  .settings(
+    name := "railo-test-utilities",
+    resolvers += {
+      val Seq(name, url) = railoResolver.value
+      name at url
+    },
+    libraryDependencies ++= railoDependencies.value
+  )
+  .dependsOn(`railo-compiler`)

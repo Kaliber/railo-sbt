@@ -92,8 +92,10 @@ object RailoConfiguration {
         |  <scheduler directory="{lucee-web}/scheduler/"/>
         |  <mappings>
         |    ${settings.mappings.map { 
-                case Mapping(virtual, archive) => 
-                  s"""<mapping archive="$archive" toplevel="no" trusted="true" primary="archive" virtual="/$virtual" />"""
+                case ArchiveMapping(virtual, archive) => 
+                  s"""|    <mapping archive="$archive" toplevel="no" trusted="true" primary="archive" virtual="/$virtual" />"""
+                case LocalDirectoryMapping(virtual, directory) => 
+                  s"""|    <mapping toplevel="no" trusted="true" primary="physical" virtual="/$virtual" physical="$directory" />"""
              }.mkString("\n")}
         |    <mapping archive="{lucee-web}/context/lucee-context.lar" physical="{lucee-web}/context/" primary="physical" readonly="yes" toplevel="yes" trusted="true" virtual="/lucee/"/>
         |  </mappings> 

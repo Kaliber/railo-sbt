@@ -19,6 +19,7 @@ object AutoImport {
     val hashPassword = taskKey[(String, String) => String]("Hashes the given password and salt using Railo")
     val salt = taskKey[String]("Salt used to hash the password. Default is a UUID")
     val mode = taskKey[RailoRunMode]("The mode in which the server should run")
+    val generateTestUtilities = taskKey[Seq[File]]("Generates files useful for testing")
   }
   
   sealed abstract class RailoRunMode(value:String) {

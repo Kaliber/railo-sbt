@@ -26,12 +26,14 @@ object Compiler extends CompilerInterface {
     railoServletName: String,
     logger: Logger) = {
     val runner = new RailoRunner(jettyServer, railoServletName)
-    runner withRailo compileWithServlet(password, sourceDir, logger)
+    runner withRailo { case RailoContext(config, pageContext, _) =>
+      compileWithServlet(password, sourceDir, logger, config, pageContext)
+    }
   }
 
   private def compileWithServlet(
-    password: String, sourceDir: File, logger: Logger)(
-      config: ConfigWeb, pageContext: PageContext): Try[File] = Try {
+    password: String, sourceDir: File, logger: Logger,
+    config: ConfigWeb, pageContext: PageContext): Try[File] = Try {
 
     val rootMapping = config.getMappings.toSeq
       .find(_.getVirtual == "/")
@@ -99,7 +101,7 @@ object Compiler extends CompilerInterface {
       Some(normalized)
     } else None
 
-  private def getFriendlyError(e: PageException, config: ConfigWeb) = {
+  def getFriendlyError(e: PageException, config: ConfigWeb) = {
     val catchBlock = e.getCatchBlock(config).asScala.asInstanceOf[scala.collection.mutable.Map[String, Any]]
     val tagContext = catchBlock.get("TagContext")
       .map(_.asInstanceOf[java.util.List[java.util.Map[String, Any]]])

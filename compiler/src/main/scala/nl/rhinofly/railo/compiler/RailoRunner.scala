@@ -8,10 +8,11 @@ import javax.servlet.http.HttpServlet
 import nl.rhinofly.railo.compiler.fakes.FakeHttpServletResponse
 import lucee.runtime.PageContext
 import lucee.runtime.config.ConfigWeb
+import lucee.runtime.util.Creation
 
 class RailoRunner(jettyServer: JettyServerInterface, railoServletName: String) {
 
-  def withRailo[T](code: (ConfigWeb, PageContext) => T): T =
+  def withRailo[T](code: RailoContext => T): T =
     withRailoServlet { servlet =>
       val servletConfig = servlet.getServletConfig
 
@@ -43,9 +44,12 @@ class RailoRunner(jettyServer: JettyServerInterface, railoServletName: String) {
       // Railo needs to think it's actually executing a page, so we make
       // it think the current page is the base component (a relatively 
       // easy accessible PageSource instance)
+      //
+      // The downside of this, is that `Application.cfc` will not be 
+      // executed.
       pageContext.addPageSource(config.getBaseComponentPageSource, true)
       
-      code(config, pageContext)
+      code(new RailoContext(config, pageContext, engine.getCreationUtil))
     }
 
   private def withRailoServlet[T](code: Servlet => T): T =
