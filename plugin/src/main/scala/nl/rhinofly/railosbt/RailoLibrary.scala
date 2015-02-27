@@ -47,6 +47,7 @@ object RailoLibrary extends AutoPlugin {
     versionSettings ++
       passwordSettings ++
       directorySettings ++
+      mappingSettings ++
       compileSettings ++
       packageRailoSettings
   }

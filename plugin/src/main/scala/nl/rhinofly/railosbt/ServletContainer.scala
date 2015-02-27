@@ -25,8 +25,7 @@ object ServletContainer {
     |  </servlet>
     |  <servlet-mapping>
     |    <servlet-name>CFMLServlet</servlet-name>
-    |    <url-pattern>*.cfm</url-pattern>
-    |    <url-pattern>*.cfc</url-pattern>
+    |    <url-pattern>/</url-pattern>
     |  </servlet-mapping>
     |</web-app>""".stripMargin
 }

@@ -46,6 +46,7 @@ object RailoApplication extends AutoPlugin {
     versionSettings ++
       passwordSettings ++
       directorySettings ++
+      mappingSettings ++
       runSettings ++
       nativePackagerSettings
   }

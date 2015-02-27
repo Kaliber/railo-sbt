@@ -54,15 +54,11 @@ object RailoConfigurationSettings {
     password in webConfiguration <<= password in webConfiguration in Railo,
     salt in webConfiguration <<= salt in Railo,
 
-    target in webConfiguration := (target in Railo).value / "web",
+    target in webConfiguration <<= target in webConfiguration in Railo,
 
-    libraryMappings in webConfiguration := railoMappingsInConfiguration(
-      updateReport = update.value,
-      base = (target in webConfiguration).value,
-      target = (target in libraryMappings).value
-    ),
+    libraryMappings in webConfiguration <<= libraryMappings in webConfiguration in Railo,
 
-    target in libraryMappings := (target in webConfiguration).value / "mappingArchives",
+    target in libraryMappings <<= target in libraryMappings in Railo,
 
     content in webConfiguration := {
       streams.value.log.warn("Add protection that prevents publishing or packaging with LocalDirectoryMappings that are outside of the project root")
@@ -108,7 +104,7 @@ object RailoConfigurationSettings {
   )
 
   lazy val mappingForCurrentProjectSettings = Seq(
-    libraryMappings in webConfiguration += createMapping(
+    libraryMappings in webConfiguration += RailoSettings.createMapping(
       base = (target in webConfiguration).value,
       file = (packageRailo in Compile).value,
       target = (target in libraryMappings).value,
@@ -122,31 +118,5 @@ object RailoConfigurationSettings {
       RailoServerSettings.LocalDirectoryMapping("test", testSources.getAbsolutePath)
     }
   )
-
-  def railoMappingsInConfiguration(updateReport: UpdateReport, base: File, target: File) = {
-    val filter = configurationFilter(Railo.name) && artifactFilter(classifier = Railo.name)
-    updateReport.filter(filter).toSeq.map {
-      case (configuration, moduleId, artifact, file) =>
-
-        val mappingName =
-          for {
-            manifest <- new Jar(file).manifest
-            mappingName <- Option(manifest.getMainAttributes.getValue(MAPPING_NAME))
-          } yield mappingName
-
-        createMapping(base, file, target, mappingName.getOrElse(artifact.name))
-    }
-  }
-
-  def createMapping(base: File, file: File, target: File, mappingName: String) = {
-    val targetFile = target / file.getName
-    IO.copyFile(file, targetFile)
-    val relativeFileName = IO.relativize(base, targetFile).getOrElse(sys.error(s"Programming error, $targetFile is not relative to $target"))
-
-    RailoServerSettings.ArchiveMapping(
-      mappingName,
-      "{railo-web}/" + relativeFileName
-    )
-  }
 
 }

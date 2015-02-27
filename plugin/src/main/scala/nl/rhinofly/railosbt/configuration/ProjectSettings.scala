@@ -40,7 +40,8 @@ object ProjectSettings {
         scalaDependency(testUtilitiesDependency) % compileAndRuntimeAndTestOnly,
         javaDependency(railoDependency) % compileAndRuntimeAndTestOnly,
         // railo does not have this listed as dependency while it depends on it
-        javaDependency(servletJspApiDependency) % compileAndRuntimeAndTestOnly
+        javaDependency(servletJspApiDependency) % compileAndRuntimeAndTestOnly,
+        javaDependency(elApiDependency) % compileAndRuntimeAndTestOnly
       )
     },
     ivyConfigurations += compileAndRuntimeAndTestOnly,

@@ -52,6 +52,18 @@ object RailoSettings {
     includeFilter in unmanagedSources := "*.cfc" | "*.cfm"
   )
 
+  lazy val mappingSettings = Seq(
+    target in webConfiguration := (target in Railo).value / "web",
+
+    target in libraryMappings := (target in webConfiguration).value / "mappingArchives",
+
+    libraryMappings in webConfiguration := railoMappingsInConfiguration(
+      updateReport = update.value,
+      base = (target in webConfiguration).value,
+      target = (target in libraryMappings).value
+    )
+  )
+
   lazy val runSettings =
     inTask(run)(
       Seq(
@@ -181,5 +193,31 @@ object RailoSettings {
       val module = mirror.staticModule(name)
       mirror.reflectModule(module).instance.asInstanceOf[T]
     }
+  }
+
+  def railoMappingsInConfiguration(updateReport: UpdateReport, base: File, target: File) = {
+    val filter = configurationFilter(Railo.name) && artifactFilter(classifier = Railo.name)
+    updateReport.filter(filter).toSeq.map {
+      case (configuration, moduleId, artifact, file) =>
+
+        val mappingName =
+          for {
+            manifest <- new Jar(file).manifest
+            mappingName <- Option(manifest.getMainAttributes.getValue(MAPPING_NAME))
+          } yield mappingName
+
+        createMapping(base, file, target, mappingName.getOrElse(artifact.name))
+    }
+  }
+
+  def createMapping(base: File, file: File, target: File, mappingName: String) = {
+    val targetFile = target / file.getName
+    IO.copyFile(file, targetFile)
+    val relativeFileName = IO.relativize(base, targetFile).getOrElse(sys.error(s"Programming error, $targetFile is not relative to $target"))
+
+    RailoServerSettings.ArchiveMapping(
+      mappingName,
+      "{railo-web}/" + relativeFileName
+    )
   }
 }

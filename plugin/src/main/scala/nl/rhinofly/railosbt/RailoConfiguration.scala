@@ -91,14 +91,14 @@ object RailoConfiguration {
         |  <search directory="{lucee-web}/search/" engine-class="lucee.runtime.search.lucene.LuceneSearchEngine"/>
         |  <scheduler directory="{lucee-web}/scheduler/"/>
         |  <mappings>
-        |    ${settings.mappings.map { 
-                case ArchiveMapping(virtual, archive) => 
-                  s"""|    <mapping archive="$archive" toplevel="no" trusted="true" primary="archive" virtual="/$virtual" />"""
-                case LocalDirectoryMapping(virtual, directory) => 
-                  s"""|    <mapping toplevel="no" trusted="true" primary="physical" virtual="/$virtual" physical="$directory" />"""
+             ${settings.mappings.map {
+                case ArchiveMapping(virtual, archive) =>
+                  s"""|    <mapping virtual="/$virtual" archive="$archive" toplevel="no" trusted="true" primary="archive" />"""
+                case LocalDirectoryMapping(virtual, directory) =>
+                  s"""|    <mapping virtual="/$virtual" physical="$directory" toplevel="no" trusted="true" primary="physical" />"""
              }.mkString("\n")}
         |    <mapping archive="{lucee-web}/context/lucee-context.lar" physical="{lucee-web}/context/" primary="physical" readonly="yes" toplevel="yes" trusted="true" virtual="/lucee/"/>
-        |  </mappings> 
+        |  </mappings>
         |  <custom-tag>
         |    <mapping physical="{lucee-web}/customtags/" trusted="yes"/>
         |  </custom-tag>
@@ -122,6 +122,9 @@ object RailoConfiguration {
         |  <rest/>
         |  <gateways/>
         |  <orm/>
+        |  <cache default-function="" default-include="" default-object="default" default-query="" default-resource="" default-template="">
+        |    <connection class="lucee.runtime.cache.ram.RamCache" custom="timeToIdleSeconds=0&amp;timeToLiveSeconds=0" name="default" read-only="false" storage="false"/>
+        |  </cache>
         |</cfLuceeConfiguration>""".stripMargin
 
   def serverConfiguration(hashedPassword: String, salt: String) = {

@@ -33,7 +33,7 @@ val railoCompilerClassName = settingKey[String]("Name of the Railo Compiler impl
 
 val servletJspApiDependency = settingKey[Seq[String]]("The servlet jsp api dependency organization, artifact and version")
 
-val railoDependencies = settingKey[Seq[ModuleID]]("All railo related dependencies")
+val elApiDependency = settingKey[Seq[String]]("The el api dependency organization, artifact and version")
 
 railoResolver in Global := Seq("http://cfmlprojects.org/artifacts/", "http://cfmlprojects.org/artifacts/")
 
@@ -60,27 +60,22 @@ railoCompilerClassName in Global := "nl.rhinofly.railo.compiler.Compiler"
 
 servletJspApiDependency in Global := Seq("javax.servlet.jsp", "javax.servlet.jsp-api", "2.2.1")
 
-railoDependencies in Global  := {
-  val railoDependency = {
-    val Seq(organization, name) = railoDependencyBase.value
-    organization % name
-  }
-  val actualServletJspApiDependency = {
-    val Seq(organization, name, version) = servletJspApiDependency.value
-    organization % name % version % "provided"
-  }
-  Seq(
-    // matches all versions greater or equal to 4.5 and lower than 4.6
-    railoDependency % "[4.5.0.000,4.6.0.000[" % "provided",
-    servletApiDependency % "provided",
-    actualServletJspApiDependency,
-    elApiDependency
-  )
+elApiDependency in Global := Seq("javax.el", "javax.el-api", "2.2.1")
+
+def asModule(s:Seq[String]) = {
+  val Seq(organization, name, version) = s
+  organization % name % version
 }
+
+def asGroup(s:Seq[String]) = {
+  val Seq(organization, name) = s
+  organization % name
+}
+
 
 val servletApiDependency = "javax.servlet" % "javax.servlet-api" % "3.1.0"
 
-val elApiDependency = "javax.el" % "javax.el-api" % "2.2.1" % "provided"
+//val elApiDependency = "javax.el" % "javax.el-api" % "2.2.1" % "provided"
 
 val jettyDependency = "org.eclipse.jetty" % "jetty-webapp" % "9.2.3.v20140905"
 
@@ -119,7 +114,8 @@ lazy val `railo-sbt` = project.in( file("plugin") )
       testUtilitiesDependency,
       jettyServerFactoryClassName,
       railoCompilerClassName,
-      servletJspApiDependency
+      servletJspApiDependency,
+      elApiDependency
     ),
     sourceGenerators in Compile <+= buildInfo,
     libraryDependencies += Defaults.sbtPluginExtra(
@@ -149,7 +145,13 @@ lazy val `railo-compiler` = project.in( file("compiler") )
       val Seq(name, url) = railoResolver.value
       name at url
     },
-    libraryDependencies ++= railoDependencies.value
+    libraryDependencies ++= Seq(
+      // matches all versions greater or equal to 4.5 and lower than 4.6
+      asGroup(railoDependencyBase.value) % "[4.5.0.000,4.6.0.000[" % "provided",
+      servletApiDependency % "provided",
+      asModule(servletJspApiDependency.value) % "provided",
+      asModule(elApiDependency.value) % "provided"
+    )
   )
   .dependsOn(`compiler-interface`)
 
@@ -191,6 +193,12 @@ lazy val `test-utilities` = project.in( file("test-utilities") )
       val Seq(name, url) = railoResolver.value
       name at url
     },
-    libraryDependencies ++= railoDependencies.value
+    libraryDependencies ++=   Seq(
+      // matches all versions greater or equal to 4.5 and lower than 4.6
+      asGroup(railoDependencyBase.value) % "[4.5.0.000,4.6.0.000[" % "provided",
+      servletApiDependency % "provided",
+      asModule(servletJspApiDependency.value) % "provided",
+      asModule(elApiDependency.value) % "provided"
+    )
   )
   .dependsOn(`railo-compiler`)
