@@ -4,37 +4,27 @@ import scala.language.dynamics
 import lucee.runtime.Component
 import nl.rhinofly.railo.compiler.RailoContext
 
-class CfcDefinition(val underlying: RailoContext => Component) extends Dynamic {
+class CfcDefinition(val instance: Component)(implicit c: RailoContext) extends Dynamic {
 
-  def this(name: String) = this(Cfc.load(name))
-
-  def checkUnderlying(implicit c:RailoContext):CfcDefinition = {
-    underlying(c)
-    this
-  } 
-  
-  def applyDynamic(method: String)(arguments: NoWrapperType*)(implicit c: RailoContext): AnyRef = {
+  def applyDynamic(method: String)(arguments: NoWrapperType*): AnyRef = {
     val normalizedArguments = arguments.map(_.value).toArray
-    underlying(c).call(c.pageContext, method, normalizedArguments)
+    instance.call(c.pageContext, method, normalizedArguments)
   }
-    
-  def applyDynamicNamed(method:String)(arguments: (String, NoWrapperType) *)(implicit c: RailoContext): AnyRef =
-    underlying(c).callWithNamedValues(c.pageContext, method, Struct(arguments: _*))
+
+  def applyDynamicNamed(method: String)(arguments: (String, NoWrapperType)*): AnyRef =
+    instance.callWithNamedValues(c.pageContext, method, Struct(arguments: _*))
 }
 
-class Cfc(name: String, arguments: AnyRef*)
-  extends CfcDefinition(
-    underlying = Cfc.instantiate(name, arguments.toArray)
-  )
+class Cfc(name: String, arguments: AnyRef*)(implicit c: RailoContext)
+  extends CfcDefinition(Cfc.instantiate(name, arguments.toArray))
 
 object Cfc {
-  def apply(name: String)(implicit c:RailoContext): CfcDefinition = 
-    new CfcDefinition(name).checkUnderlying
+  def apply(name: String)(implicit c: RailoContext): CfcDefinition =
+    new CfcDefinition(load(name))
 
-  def load(name: String): RailoContext => Component =
-    _.pageContext.loadComponent(name)
+  def load(name:String)(implicit c: RailoContext): Component =
+    c.pageContext.loadComponent(name)
 
-  def instantiate(name: String, arguments: Array[AnyRef]): RailoContext => Component = { c =>
-    load(name)(c).call(c.pageContext, "init", arguments).as[Component]
-  }
+  def instantiate(name: String, arguments: Array[AnyRef])( implicit c: RailoContext): Component = 
+    load(name).call(c.pageContext, "init", arguments).as[Component]
 }
