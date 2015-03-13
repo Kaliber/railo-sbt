@@ -94,7 +94,7 @@ object RailoConfigurationSettings {
     },
 
     artifactPath in serverConfiguration :=
-      (target in serverConfiguration).value / "railo-server" / "context" / "railo-server.xml",
+      (target in serverConfiguration).value / "lucee-server" / "context" / "lucee-server.xml",
 
     serverConfiguration := {
       val contents = (content in serverConfiguration).value

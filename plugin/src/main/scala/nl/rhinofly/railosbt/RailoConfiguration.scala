@@ -128,67 +128,69 @@ object RailoConfiguration {
         |</cfLuceeConfiguration>""".stripMargin
 
   def serverConfiguration(hashedPassword: String, salt: String) = {
-    s"""|<?xml version="1.0" encoding="UTF-8"?><railo-configuration pw="$hashedPassword" salt="$salt" version="4.2">
-       | <system err="default" out="null"/>
-       | <data-sources psq="false"></data-sources>
-       | <file-system fld-directory="{railo-config}/library/fld/" function-directory="{railo-config}/library/function/" tag-directory="{railo-config}/library/tag/" temp-directory="{railo-config}/temp/" tld-directory="{railo-config}/library/tld/"></file-system>
-       | <dump-writers>
-       |   <dump-writer class="railo.runtime.dump.HTMLDumpWriter" default="browser" name="html"/>
-       |   <dump-writer class="railo.runtime.dump.TextDumpWriter" default="console" name="text"/>
-       |   <dump-writer class="railo.runtime.dump.ClassicHTMLDumpWriter" name="classic"/>
-       |   <dump-writer class="railo.runtime.dump.SimpleHTMLDumpWriter" name="simple"/>
-       | </dump-writers>
-       | <remote-clients directory="{railo-config}remote-client/"/>
-       |    <resources>
-       |     <default-resource-provider arguments="lock-timeout:1000;" class="railo.commons.io.res.type.file.FileResourceProvider"/>
-       |     <resource-provider arguments="lock-timeout:20000;socket-timeout:-1;client-timeout:60000" class="railo.commons.io.res.type.ftp.FTPResourceProvider" scheme="ftp"/>
-       |     <resource-provider arguments="lock-timeout:1000;case-sensitive:true;" class="railo.commons.io.res.type.zip.ZipResourceProvider" scheme="zip"/>  
-       |     <resource-provider arguments="lock-timeout:1000;case-sensitive:true;" class="railo.commons.io.res.type.tar.TarResourceProvider" scheme="tar"/>
-       |     <resource-provider arguments="lock-timeout:1000;case-sensitive:true;" class="railo.commons.io.res.type.tgz.TGZResourceProvider" scheme="tgz"/>
-       |     <resource-provider arguments="lock-timeout:10000;case-sensitive:false;" class="railo.commons.io.res.type.http.HTTPResourceProvider" scheme="http"/>
-       |     <resource-provider arguments="lock-timeout:10000;case-sensitive:false;" class="railo.commons.io.res.type.http.HTTPSResourceProvider" scheme="https"/>
-       |     <resource-provider arguments="lock-timeout:10000;" class="railo.commons.io.res.type.s3.S3ResourceProvider" scheme="s3"/>
-       |    </resources>
-       | <scope applicationtimeout="1,0,0,0" cascade-to-resultset="yes" cascading="standard" client-directory-max-size="10mb" client-max-age="90" clientmanagement="no" merge-url-form="no" requesttimeout="0,0,0,50" sessionmanagement="yes" sessiontimeout="0,0,30,0" setclientcookies="yes" setdomaincookies="no"/>
-       | <mail spool-enable="yes" spool-interval="5" timeout="30">
-       | </mail>
-       | <mappings>
-       |   <mapping archive="" inspect-template="once" listener-mode="modern" listener-type="curr2root" physical="{railo-server}/context/" primary="physical" readonly="yes" virtual="/railo-server-context/"/>
-       |   <mapping archive="{railo-config}/context/railo-context.ra" inspect-template="once" listener-mode="modern" listener-type="curr2root" physical="{railo-config}/context/" primary="physical" readonly="yes" virtual="/railo-context/"/>
-       | </mappings> 
-       | <custom-tag>
-       |   <mapping inspect-template="never" physical="{railo-config}/customtags/"/>
-       | </custom-tag>
-       | <ext-tags>
-       |   <ext-tag class="railo.cfx.example.HelloWorld" name="HelloWorld" type="java"/>
-       | </ext-tags>
-       | <component base="/railo-context/Component.cfc" data-member-default-access="public" dump-template="/railo-context/component-dump.cfm">
-       |     <mapping inspect-template="never" physical="{railo-web}/components/" primary="physical" virtual="/default"/>
-       | </component>
-       | <regional timeserver="pool.ntp.org"/>
-       | <orm engine-class="railo.runtime.orm.hibernate.HibernateORMEngine"/>
-       | <debugging debug="no" log-memory-usage="no" show-query-usage="no" template="/railo-context/templates/debugging/debugging.cfm"/>
-       | <application listener-mode="curr2root" listener-type="mixed"/>
-       | <update location="http://www.getrailo.org" type="manual"/>
-       | <flex configuration="manual"/>
-       | <logging>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/mapping.log" layout="classic" name="mapping"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/rest.log" layout="classic" name="rest"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/gateway.log" layout="classic" name="gateway"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/remoteclient.log" layout="classic" level="info" name="remoteclient"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/orm.log" layout="classic" name="orm"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/mail.log" layout="classic" name="mail"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/search.log" layout="classic" name="search"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/scheduler.log" layout="classic" name="scheduler"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/scope.log" layout="classic" name="scope"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/application.log" layout="classic" name="application"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/exception.log" layout="classic" name="exception"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/trace.log" layout="classic" name="trace"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/thread.log" layout="classic" name="thread"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/deploy.log" layout="classic" name="deploy"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/requesttimeout.log" layout="classic" name="requesttimeout"/>
-       |   <logger appender="resource" appender-arguments="path:{railo-config}/logs/memory.log" layout="classic" name="memory"/>
-       | </logging>
-       |</railo-configuration>""".stripMargin
+    s"""|<?xml version="1.0" encoding="UTF-8"?><cfLuceeConfiguration hspw="$hashedPassword" salt="$salt" version="4.2">
+        |<system err="default" out="null"/>
+        |<data-sources psq="false"/>
+        |<file-system fld-directory="{lucee-config}/library/fld/" function-directory="{lucee-config}/library/function/" tag-directory="{lucee-config}/library/tag/" temp-directory="{lucee-config}/temp/" tld-directory="{lucee-config}/library/tld/"/>
+        |<dump-writers>
+        |  <dump-writer class="lucee.runtime.dump.HTMLDumpWriter" default="browser" name="html"/>
+        |  <dump-writer class="lucee.runtime.dump.TextDumpWriter" default="console" name="text"/>
+        |  <dump-writer class="lucee.runtime.dump.ClassicHTMLDumpWriter" name="classic"/>
+        |  <dump-writer class="lucee.runtime.dump.SimpleHTMLDumpWriter" name="simple"/>
+        |</dump-writers>
+        |<remote-clients directory="{lucee-config}remote-client/"/>
+        |<resources>
+        |  <default-resource-provider arguments="lock-timeout:1000;" class="lucee.commons.io.res.type.file.FileResourceProvider"/>
+        |  <resource-provider arguments="lock-timeout:20000;socket-timeout:-1;client-timeout:60000" class="lucee.commons.io.res.type.ftp.FTPResourceProvider" scheme="ftp"/>
+        |  <resource-provider arguments="lock-timeout:1000;case-sensitive:true;" class="lucee.commons.io.res.type.zip.ZipResourceProvider" scheme="zip"/>
+        |  <resource-provider arguments="lock-timeout:1000;case-sensitive:true;" class="lucee.commons.io.res.type.tar.TarResourceProvider" scheme="tar"/>
+        |  <resource-provider arguments="lock-timeout:1000;case-sensitive:true;" class="lucee.commons.io.res.type.tgz.TGZResourceProvider" scheme="tgz"/>
+        |  <resource-provider arguments="lock-timeout:10000;case-sensitive:false;" class="lucee.commons.io.res.type.http.HTTPResourceProvider" scheme="http"/>
+        |  <resource-provider arguments="lock-timeout:10000;case-sensitive:false;" class="lucee.commons.io.res.type.http.HTTPSResourceProvider" scheme="https"/>
+        |  <resource-provider arguments="lock-timeout:10000;" class="lucee.commons.io.res.type.s3.S3ResourceProvider" scheme="s3"/>
+        |</resources>
+        |<scope applicationtimeout="1,0,0,0" cascade-to-resultset="yes" cascading="standard" client-directory-max-size="10mb" client-max-age="90" clientmanagement="no" merge-url-form="no" requesttimeout="0,0,0,50" sessionmanagement="yes" sessiontimeout="0,0,30,0" setclientcookies="yes" setdomaincookies="no"/>
+        |<mail spool-enable="yes" spool-interval="5" timeout="30">
+        |</mail>
+        |<mappings>
+        |  <mapping archive="" inspect-template="once" listener-mode="modern" listener-type="curr2root" physical="{lucee-server}/context/" primary="physical" readonly="yes" virtual="/lucee-server/"/>
+        |  <mapping archive="{lucee-config}/context/lucee-context.lar" inspect-template="once" listener-mode="modern" listener-type="curr2root" physical="{lucee-config}/context/" primary="physical" readonly="yes" virtual="/lucee/"/>
+        |</mappings>
+        |<custom-tag>
+        |  <mapping inspect-template="never" physical="{lucee-config}/customtags/"/>
+        |</custom-tag>
+        |<ext-tags>
+        |  <ext-tag class="lucee.cfx.example.HelloWorld" name="HelloWorld" type="java"/>
+        |</ext-tags>
+        |<component base="/lucee/Component.cfc" data-member-default-access="public" dump-template="/lucee/component-dump.cfm">
+        |  <mapping inspect-template="never" physical="{lucee-web}/components/" primary="physical" virtual="/default"/>
+        |</component>
+        |<regional timeserver="pool.ntp.org"/>
+        |<orm engine-class="lucee.runtime.orm.hibernate.HibernateORMEngine"/>
+        |<debugging debug="no" log-memory-usage="no" show-query-usage="no" template="/lucee/templates/debugging/debugging.cfm"/>
+        |<application listener-mode="curr2root" listener-type="mixed"/>
+        |<update location="http://stable.lucee.org" type="manual"/>
+        |<flex configuration="manual"/>
+        |<logging>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/mapping.log" layout="classic" name="mapping"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/rest.log" layout="classic" name="rest"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/gateway.log" layout="classic" name="gateway"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/remoteclient.log" layout="classic" level="info" name="remoteclient"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/orm.log" layout="classic" name="orm"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/mail.log" layout="classic" name="mail"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/search.log" layout="classic" name="search"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/scheduler.log" layout="classic" name="scheduler"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/scope.log" layout="classic" name="scope"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/application.log" layout="classic" name="application"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/exception.log" layout="classic" name="exception"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/trace.log" layout="classic" name="trace"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/thread.log" layout="classic" name="thread"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/deploy.log" layout="classic" name="deploy"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/requesttimeout.log" layout="classic" name="requesttimeout"/>
+        |  <logger appender="resource" appender-arguments="path:{lucee-config}/logs/memory.log" layout="classic" name="memory"/>
+        |</logging>
+        |<compiler dot-notation-upper-case="false" full-null-support="true" suppress-ws-before-arg="true"/>
+        |<charset template-charset="UTF-8"/>
+        |</cfLuceeConfiguration>""".stripMargin
   }
 }
